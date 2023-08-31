@@ -1,0 +1,21 @@
+sequenceDiagram
+Run->>Suite: Execute suite
+Suite->>Suite: BeforeSuite
+Suite->>Scenarios: Execute scenarios
+loop Each Scenario
+	Scenarios->>Scenario: Begin scenario
+	Scenario->>Scenario: BeforeScenario
+	Scenario->>Steps: Execute steps
+	loop Each Step
+		Steps->>Step: Begin step
+		Step->>Step: BeforeStep
+		Step->>Step: AfterStep
+		Step->>Steps: Finish step
+	end
+	Steps->>Scenario: Finish steps
+	Scenario-->>Scenario: AfterScenario
+	Scenario-->>Scenarios: Finish execution
+end
+Scenarios->>Suite: Finish scenarios
+Suite->>Suite: AfterSuite
+Suite->>Run: Finish
