@@ -56,8 +56,6 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^I store for templating:$`, IStoreForTemplating)
 	ctx.Step(`^I store from the response for templating:$`, IStoreFromTheResponseForTemplating)
 
-	ctx.Step(`^I am an admin user`, IAmAnAdminUser)
-
 	// HTTP
 	ctx.Step(`^The cookies:$`, TheCookies)
 	ctx.Step(`^I set the query params:$`, ISetTheQueryParams)
@@ -91,10 +89,6 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^the websocket message on "([^"]*)" connection should match "([^"]*)"$`, TheWebsocketMessageToConnectionShouldMatchJSON)
 	ctx.Step(`^the websocket message should match "([^"]*)" ignoring:$`, TheWebsocketMessageShouldMatchJSONIgnoring)
 	ctx.Step(`^the websocket message on "([^"]*)" connection should match "([^"]*)" ignoring:$`, TheWebsocketMessageToConnectionShouldMatchJSONIgnoring)
-}
-
-func IAmAnAdminUser(ctx context.Context) (context.Context, error) {
-	return ctx, nil
 }
 
 func IPutFilesIntoS3(ctx context.Context, table *godog.Table) error {
