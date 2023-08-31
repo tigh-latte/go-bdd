@@ -443,6 +443,9 @@ func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file str
 	}
 
 	// TODO: Handle authentication somehow.
+	if auth, ok := GetAuthentication(ctx); ok {
+		auth.ApplyHTTP(ctx, req)
+	}
 
 	resp, err := t.HTTP.Client.Do(req)
 	if err != nil {

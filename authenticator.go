@@ -28,6 +28,11 @@ func MustGetAuthentication(ctx context.Context) Authentication {
 	return auth
 }
 
+func GetAuthentication(ctx context.Context) (Authentication, bool) {
+	auth, ok := ctx.Value(authKey).(Authentication)
+	return auth, ok
+}
+
 type DefaultBasicAuthentication struct {
 	User string
 	Pass string
