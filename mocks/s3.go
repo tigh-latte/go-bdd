@@ -6,7 +6,7 @@ package mocks
 import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/tigh-latte/go-bdd/bdd"
+	"github.com/tigh-latte/go-bdd"
 	"sync"
 )
 

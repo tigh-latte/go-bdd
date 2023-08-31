@@ -11,7 +11,7 @@ import (
 	messages "github.com/cucumber/messages/go/v21"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/tigh-latte/go-bdd/bdd"
+	"github.com/tigh-latte/go-bdd"
 	"github.com/tigh-latte/go-bdd/bddcontext"
 	"github.com/tigh-latte/go-bdd/internal/data"
 	"github.com/tigh-latte/go-bdd/mocks"
