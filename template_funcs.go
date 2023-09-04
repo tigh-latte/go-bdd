@@ -1,3 +1,6 @@
+// TODO: Move file to own package, tmplfn or something, and export functions to allow expansion.
+// TODO: Add scenario context.Context to bdd.context.TemplateValues to allow it to be provided to
+// these functions.
 package bdd
 
 import (
