@@ -7,6 +7,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/tigh-latte/go-bdd/clients"
 	"github.com/tigh-latte/go-bdd/internal/websocket"
 
 	"github.com/cucumber/godog"
@@ -23,7 +24,7 @@ type User struct {
 
 type testSuiteOpts struct {
 	db    *dbOptions
-	s3    *s3Options
+	s3    *clients.S3Options
 	rmq   *rmqOptions
 	grpcs []grpcOptions
 	ws    *wsOptions
@@ -64,12 +65,6 @@ func (o *testSuiteOpts) applyConfig() {
 	}
 }
 
-type s3Options struct {
-	Host   string
-	Key    string
-	Secret string
-}
-
 type grpcOptions struct {
 	Host string
 }
@@ -94,7 +89,7 @@ type wsOptions struct {
 
 func WithS3(host, key, secret string) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.s3 = &s3Options{
+		t.s3 = &clients.S3Options{
 			Host:   host,
 			Key:    key,
 			Secret: secret,

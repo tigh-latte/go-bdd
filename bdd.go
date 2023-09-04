@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/tigh-latte/go-bdd/bddcontext"
+	"github.com/tigh-latte/go-bdd/clients"
 	"github.com/tigh-latte/go-bdd/config"
 	"github.com/tigh-latte/go-bdd/fake"
 	configinternal "github.com/tigh-latte/go-bdd/internal/config"
@@ -93,10 +94,8 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 			config.Init()
 			opts.applyConfig()
 
-			if opts.s3 != nil {
-				if err := initS3(opts.s3); err != nil {
-					panic(err)
-				}
+			if err := clients.InitS3(opts.s3); err != nil {
+				panic(err)
 			}
 		})
 
@@ -133,7 +132,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 	return func(ctx *godog.ScenarioContext) {
 		sd := &bddcontext.Context{
 			TemplateValues: make(map[string]any),
-			S3Client:       s3Client,
+			S3Client:       clients.S3Client,
 			HTTP: &bddcontext.HTTPContext{
 				Headers:       make(http.Header, 0),
 				Cookies:       make([]*http.Cookie, len(opts.cookies)),
@@ -268,7 +267,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 
 			return ctx, nil
 		})
-		ctx.After(func(ctx context.Context, _ *godog.Scenario, err error) (context.Context, error) {
+		ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 			if opts.ws != nil {
 				for _, connection := range sd.WS.Connections {
 					sd.WS.Client.Close(ctx, connection.SessionID)

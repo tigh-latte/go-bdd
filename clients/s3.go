@@ -1,21 +1,31 @@
-package bdd
+package clients
 
 import (
 	"context"
+	"errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/pkg/errors"
 )
 
-var (
-	s3Client *s3.Client
-)
+var S3Client *s3.Client
 
-func initS3(opts *s3Options) error {
+type S3Options struct {
+	Host   string
+	Key    string
+	Secret string
+}
+
+func InitS3(opts *S3Options) error {
+	// Nothing to init.
+	if opts == nil {
+		return nil
+	}
+
 	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string,
-		options ...interface{}) (aws.Endpoint, error) {
+		options ...interface{},
+	) (aws.Endpoint, error) {
 		return aws.Endpoint{
 			PartitionID:       "aws",
 			URL:               opts.Host,
@@ -41,7 +51,7 @@ func initS3(opts *s3Options) error {
 		return err
 	}
 
-	if s3Client = s3.NewFromConfig(cfg); s3Client == nil {
+	if S3Client = s3.NewFromConfig(cfg); S3Client == nil {
 		return errors.New("aws client nil")
 	}
 
