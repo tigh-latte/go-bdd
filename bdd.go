@@ -2,6 +2,7 @@ package bdd
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/cucumber/godog/colors"
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"github.com/tigh-latte/go-bdd/bddcontext"
 	"github.com/tigh-latte/go-bdd/config"
 	"github.com/tigh-latte/go-bdd/fake"
@@ -26,7 +28,6 @@ import (
 var godogOpts = godog.Options{
 	Output: colors.Colored(os.Stdout),
 	Format: "progress",
-	FS:     os.DirFS("."),
 	Paths:  []string{"features"},
 	Strict: true,
 }
@@ -77,6 +78,7 @@ func NewSuite(name string, oo ...TestSuiteOptionFunc) *Suite {
 	}
 	s.suite.TestSuiteInitializer = s.initSuite(opts)
 	s.suite.ScenarioInitializer = s.initScenario(opts)
+	godogOpts.FS = opts.featureFS
 
 	return s
 }
@@ -126,19 +128,22 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 }
 
 func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContext) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	return func(ctx *godog.ScenarioContext) {
 		sd := &bddcontext.Context{
 			TemplateValues: make(map[string]any),
 			S3Client:       s3Client,
 			HTTP: &bddcontext.HTTPContext{
-				Headers:     make(http.Header, 0),
-				Cookies:     make([]*http.Cookie, len(opts.cookies)),
-				Requests:    stack.NewStack[json.RawMessage](0),
-				Responses:   stack.NewStack[json.RawMessage](0),
-				TestData:    opts.httpDataDir,
-				QueryParams: make(url.Values),
-				ToIgnore:    make([]string, 0),
-				Client:      &http.Client{Timeout: 30 * time.Second},
+				Headers:       make(http.Header, 0),
+				Cookies:       make([]*http.Cookie, len(opts.cookies)),
+				Requests:      stack.NewStack[json.RawMessage](20),
+				Responses:     stack.NewStack[json.RawMessage](20),
+				ResponseCodes: stack.NewStack[int](20),
+				TestData:      opts.httpDataDir,
+				QueryParams:   make(url.Values),
+				ToIgnore:      make([]string, 0),
+				Client:        &http.Client{Timeout: 30 * time.Second, Transport: transport},
 			},
 			TestData: opts.testDataDir,
 			Template: template.New("template"),
@@ -168,6 +173,13 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				"date_add": func(year, month, days int) string {
 					return today.AddDate(year, month, days).Format("2006-01-02")
 				},
+				"assert_future":      assertFuture,
+				"assert_json_string": assertJsonString,
+				"assert_not_empty":   assertNotEmpty,
+				"viper": func(key string) string {
+					return viper.GetString(key)
+				},
+				"to_hostname":       toHostname,
 				"random_name":       fake.Name,
 				"random_first_name": fake.FirstName,
 				"random_last_name":  fake.LastName,
@@ -175,7 +187,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				"random_sentence":   fake.Sentence,
 				"upper":             strings.ToUpper,
 				"lower":             strings.ToLower,
-				"intify":            intify,
+				"intify":            toInt,
 				"uuid": func() string {
 					return uuid.New().String()
 				},

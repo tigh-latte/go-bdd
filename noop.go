@@ -13,7 +13,7 @@ func noopBeforeScenarioHook(ctx context.Context, sn *godog.Scenario) (context.Co
 }
 
 func noopAfterScenarioHook(ctx context.Context, sn *godog.Scenario, err error) (context.Context, error) {
-	return ctx, err
+	return ctx, nil
 }
 
 func noopTestBeforeStepHook(ctx context.Context, sn *godog.Step) (context.Context, error) {
@@ -21,5 +21,5 @@ func noopTestBeforeStepHook(ctx context.Context, sn *godog.Step) (context.Contex
 }
 
 func noopTestAfterStepHook(ctx context.Context, sn *godog.Step, status godog.StepResultStatus, err error) (context.Context, error) {
-	return ctx, err
+	return ctx, nil
 }

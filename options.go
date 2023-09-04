@@ -30,6 +30,7 @@ type testSuiteOpts struct {
 
 	concurrency int
 
+	featureFS     fs.FS
 	testDataDir   *data.DataDir
 	rabbitDataDir *data.DataDir
 	httpDataDir   *data.DataDir
@@ -108,6 +109,12 @@ func WithRabbitMQ(host string, deliveryTimeout time.Duration, subs ...RabbitMQSu
 			DeliveryTimeout: deliveryTimeout,
 			Subs:            subs,
 		}
+	}
+}
+
+func WithFeatureFS(fsys fs.FS) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.featureFS = fsys
 	}
 }
 

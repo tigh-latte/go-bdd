@@ -55,6 +55,7 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^the headers:$`, TheHeaders)
 	ctx.Step(`^I store for templating:$`, IStoreForTemplating)
 	ctx.Step(`^I store from the response for templating:$`, IStoreFromTheResponseForTemplating)
+	ctx.Step(`^I am unauthenticated$`, IAmUnauthenticated)
 
 	// HTTP
 	ctx.Step(`^The cookies:$`, TheCookies)
@@ -89,6 +90,10 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^the websocket message on "([^"]*)" connection should match "([^"]*)"$`, TheWebsocketMessageToConnectionShouldMatchJSON)
 	ctx.Step(`^the websocket message should match "([^"]*)" ignoring:$`, TheWebsocketMessageShouldMatchJSONIgnoring)
 	ctx.Step(`^the websocket message on "([^"]*)" connection should match "([^"]*)" ignoring:$`, TheWebsocketMessageToConnectionShouldMatchJSONIgnoring)
+}
+
+func IAmUnauthenticated(ctx context.Context) context.Context {
+	return UseAuthentication(ctx, &NoAuthAuthentication{})
 }
 
 func IPutFilesIntoS3(ctx context.Context, table *godog.Table) error {
@@ -442,7 +447,6 @@ func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file str
 		req.AddCookie(cookie)
 	}
 
-	// TODO: Handle authentication somehow.
 	if auth, ok := GetAuthentication(ctx); ok {
 		auth.ApplyHTTP(ctx, req)
 	}
@@ -533,6 +537,7 @@ func TheResponseBodyShouldMatchJSON(ctx context.Context, f string) error {
 
 func TheResponseBodyShouldMatchJSONIgnoring(ctx context.Context, f string, table *godog.Table) error {
 	t := bddcontext.LoadContext(ctx)
+	f = f + ".json"
 
 	tmpl := template.Must(t.Template.ParseFS(t.HTTP.TestData, path.Join("responses", f)))
 
@@ -631,7 +636,7 @@ func IEstablishWebsocketConnectionCalled(ctx context.Context, connectionID strin
 		Messages  *stack.Stack[[]byte]
 	}{
 		SessionID: sid,
-		Messages:  stack.NewStack[[]byte](0),
+		Messages:  stack.NewStack[[]byte](20),
 	}
 
 	return bddcontext.WithContext(ctx, t), nil

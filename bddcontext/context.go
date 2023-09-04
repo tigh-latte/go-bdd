@@ -14,14 +14,14 @@ import (
 	"github.com/zeroflucs-given/generics/collections/stack"
 )
 
-var key struct{}
+type contextKey struct{}
 
 func WithContext(parent context.Context, bctx *Context) context.Context {
-	return context.WithValue(parent, key, bctx)
+	return context.WithValue(parent, contextKey{}, bctx)
 }
 
 func LoadContext(ctx context.Context) *Context {
-	return ctx.Value(key).(*Context)
+	return ctx.Value(contextKey{}).(*Context)
 }
 
 type Context struct {

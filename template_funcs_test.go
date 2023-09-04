@@ -123,7 +123,7 @@ func Test_intify(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := intify(tt.arg); got != tt.want {
+			if got := toInt(tt.arg); got != tt.want {
 				t.Errorf("\n intify() got = %v, want %v \n", got, tt.want)
 			}
 		})
