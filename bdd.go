@@ -175,6 +175,11 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				"assert_future":      assertFuture,
 				"assert_json_string": assertJsonString,
 				"assert_not_empty":   assertNotEmpty,
+				"to_int":             toInt,
+				"match":              match,
+				"url_encode":         urlEncode,
+				"to_string":          toString,
+				"to_json_string":     toJsonString,
 				"viper": func(key string) string {
 					return viper.GetString(key)
 				},
@@ -186,7 +191,6 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				"random_sentence":   fake.Sentence,
 				"upper":             strings.ToUpper,
 				"lower":             strings.ToLower,
-				"intify":            toInt,
 				"uuid": func() string {
 					return uuid.New().String()
 				},

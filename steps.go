@@ -380,6 +380,9 @@ func ISendARequestTo(ctx context.Context, verb, port, endpoint string) (context.
 
 func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file string) (context.Context, error) {
 	t := bddcontext.LoadContext(ctx)
+	if file != "" {
+		file = file + ".json"
+	}
 	uriPath, qp, err := func() (string, string, error) {
 		tmpl, err := t.Template.Parse(endpoint)
 		if err != nil {
@@ -437,6 +440,8 @@ func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file str
 	if err != nil {
 		return ctx, fmt.Errorf("failed to make request to '%s': %w", url.String(), err)
 	}
+
+	req.Header.Add("Content-Type", "application/json")
 
 	for k, v := range t.HTTP.Headers {
 		for _, header := range v {

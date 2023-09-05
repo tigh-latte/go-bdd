@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strconv"
 	"time"
 )
@@ -114,4 +115,39 @@ func assertJsonString(s string) (string, error) {
 		return s, fmt.Errorf("'%s' could not be escaped: %w", s, err)
 	}
 	return string(bb[1 : len(bb)-1]), nil
+}
+
+func toJsonString(v any) (string, error) {
+	s := toString(v)
+	bb, err := json.Marshal(s)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal value '%v' into json string: %w", v, err)
+	}
+
+	if len(bb) == 0 {
+		return "", nil
+	}
+
+	return string(bb[1 : len(bb)-1]), nil
+}
+
+func toString(v any) string {
+	return fmt.Sprintf("%s", v)
+}
+
+func match(pattern, target string) (string, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return target, fmt.Errorf("invalid pattern: '%s': %w", pattern, err)
+	}
+
+	if !re.MatchString(target) {
+		return target, fmt.Errorf("input '%s' does not match pattern '%s'", target, pattern)
+	}
+
+	return target, nil
+}
+
+func urlEncode(input string) string {
+	return url.QueryEscape(input)
 }
