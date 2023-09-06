@@ -52,6 +52,8 @@ type testSuiteOpts struct {
 	customStepFunc      []TestCustomStepFunc
 	customRequireFuncs  RequireFuncs
 	customTemplateFuncs template.FuncMap
+
+	customViperConfigFunc ViperConfigFunc
 }
 
 func (o *testSuiteOpts) applyConfig() {
@@ -358,5 +360,11 @@ func WithCustomTemplateFuncs(fns template.FuncMap) TestSuiteOptionFunc {
 		for k, v := range fns {
 			t.customTemplateFuncs[k] = v
 		}
+	}
+}
+
+func WithViperConfigFunc(fn ViperConfigFunc) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.customViperConfigFunc = fn
 	}
 }

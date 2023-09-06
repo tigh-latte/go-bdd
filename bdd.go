@@ -59,9 +59,10 @@ func NewSuite(name string, oo ...TestSuiteOptionFunc) *Suite {
 		customBeforeStepFunc: noopTestBeforeStepHook,
 		customAfterStepFunc:  noopTestAfterStepHook,
 
-		customStepFunc:      []TestCustomStepFunc{},
-		customRequireFuncs:  RequireFuncs{},
-		customTemplateFuncs: make(template.FuncMap),
+		customStepFunc:        []TestCustomStepFunc{},
+		customRequireFuncs:    RequireFuncs{},
+		customTemplateFuncs:   make(template.FuncMap),
+		customViperConfigFunc: func(v *viper.Viper) {},
 
 		cookies:      make([]*http.Cookie, 0),
 		alwaysIgnore: make([]string, 0),
@@ -92,6 +93,7 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 	return func(ctx *godog.TestSuiteContext) {
 		ctx.BeforeSuite(func() {
 			config.Init()
+			opts.customViperConfigFunc(viper.GetViper())
 			opts.applyConfig()
 
 			if err := clients.InitS3(opts.s3); err != nil {

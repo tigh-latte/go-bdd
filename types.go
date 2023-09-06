@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/spf13/viper"
 )
 
 type TestSuiteHookFunc func()
@@ -23,3 +24,5 @@ type StepAdder interface {
 type TestCustomStepFunc func(sm StepAdder)
 
 type TestCustomContextFunc func() any
+
+type ViperConfigFunc func(v *viper.Viper)
