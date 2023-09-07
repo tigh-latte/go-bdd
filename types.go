@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-type TestSuiteHookFunc func()
+type TestSuiteHookFunc func() error
 
 type S3 interface {
 	s3.ListObjectsV2APIClient

@@ -118,9 +118,19 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 			// perform rabbitmq connection check here
 		})
 
-		ctx.BeforeSuite(opts.customBeforeSuiteFunc)
+		ctx.BeforeSuite(func() {
+			fmt.Println("I am going to start before")
+			if err := opts.customBeforeSuiteFunc(); err != nil {
+				panic(fmt.Errorf("failed before suite hook: %w", err))
+			}
+		})
 
-		ctx.AfterSuite(opts.customAfterSuiteFunc)
+		ctx.AfterSuite(func() {
+			fmt.Println("I am going to start after")
+			if err := opts.customAfterSuiteFunc(); err != nil {
+				panic(fmt.Errorf("failed after suite hook: %w", err))
+			}
+		})
 
 		ctx.AfterSuite(func() {
 			// shut down services here

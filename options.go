@@ -191,7 +191,7 @@ func WithBeforeSuite(fn TestSuiteHookFunc) TestSuiteOptionFunc {
 //	}))
 func WithAfterSuite(fn TestSuiteHookFunc) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.customBeforeSuiteFunc = fn
+		t.customAfterSuiteFunc = fn
 	}
 }
 

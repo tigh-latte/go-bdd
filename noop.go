@@ -6,7 +6,7 @@ import (
 	"github.com/cucumber/godog"
 )
 
-func noopTestSuiteHook() {}
+func noopTestSuiteHook() error { return nil }
 
 func noopBeforeScenarioHook(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
 	return ctx, nil
