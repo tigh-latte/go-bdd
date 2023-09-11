@@ -119,14 +119,12 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 		})
 
 		ctx.BeforeSuite(func() {
-			fmt.Println("I am going to start before")
 			if err := opts.customBeforeSuiteFunc(); err != nil {
 				panic(fmt.Errorf("failed before suite hook: %w", err))
 			}
 		})
 
 		ctx.AfterSuite(func() {
-			fmt.Println("I am going to start after")
 			if err := opts.customAfterSuiteFunc(); err != nil {
 				panic(fmt.Errorf("failed after suite hook: %w", err))
 			}
