@@ -100,12 +100,9 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 			if err := clients.InitS3(opts.s3); err != nil {
 				panic(err)
 			}
-			fmt.Println("here")
 			if err := clients.InitMongo(opts.mongo); err != nil {
-				fmt.Println("here2")
 				panic(err)
 			}
-			fmt.Println(clients.MongoClient)
 		})
 
 		ctx.BeforeSuite(func() {

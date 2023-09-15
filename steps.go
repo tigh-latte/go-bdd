@@ -144,16 +144,13 @@ func IPutDocumentsInMongoColl(ctx context.Context, table *godog.Table) error {
 			file       = row.Cells[1].Value
 		)
 
-		fmt.Println(t.TestID)
-		fmt.Println(t.ID)
-
 		r, err := t.MongoContext.TestData.Open(file)
 		if err != nil {
 			return fmt.Errorf("failed to load file '%s': %w", file, err)
 		}
 
 		// Load the collection
-		coll := t.MongoContext.Client.Database(t.TestID).Collection(collection)
+		coll := t.MongoContext.Client.Database(t.ID).Collection(collection)
 
 		// Load the documents from the file
 		var docs []interface{}
