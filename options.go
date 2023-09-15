@@ -1,12 +1,14 @@
 package bdd
 
 import (
+	"fmt"
 	"io/fs"
 	"net/http"
 	"strings"
 	"text/template"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/tigh-latte/go-bdd/clients"
 	"github.com/tigh-latte/go-bdd/internal/websocket"
 
@@ -25,6 +27,7 @@ type User struct {
 type testSuiteOpts struct {
 	db    *dbOptions
 	s3    *clients.S3Options
+	mongo *clients.MongoOptions
 	rmq   *rmqOptions
 	grpcs []grpcOptions
 	ws    *wsOptions
@@ -35,6 +38,7 @@ type testSuiteOpts struct {
 	testDataDir   *data.DataDir
 	rabbitDataDir *data.DataDir
 	httpDataDir   *data.DataDir
+	mongoDataDir  *data.DataDir
 	wsDataDir     *data.DataDir
 
 	cookies      []*http.Cookie
@@ -57,6 +61,14 @@ type testSuiteOpts struct {
 }
 
 func (o *testSuiteOpts) applyConfig() {
+	// Apply mongo url
+	mongoURI := viper.GetString("mongo.uri")
+	if mongoURI != "" {
+		o.mongo = &clients.MongoOptions{
+			URI: mongoURI,
+		}
+	}
+
 	for _, cookie := range config.Cookies() {
 		parts := strings.SplitN(cookie, "=", 2)
 		o.cookies = append(o.cookies, &http.Cookie{
@@ -95,6 +107,14 @@ func WithS3(host, key, secret string) TestSuiteOptionFunc {
 			Host:   host,
 			Key:    key,
 			Secret: secret,
+		}
+	}
+}
+
+func WithMongo(uri string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.mongo = &clients.MongoOptions{
+			URI: uri,
 		}
 	}
 }
@@ -302,10 +322,30 @@ func WithTestData(fsys fs.FS) TestSuiteOptionFunc {
 //	. . .
 //	cucumber.NewSuite("test", cucumber.WithHTTPData(httpData))
 func WithHTTPData(fsys fs.FS) TestSuiteOptionFunc {
+	fmt.Printf("http data: %+v\n", fsys)
 	return func(t *testSuiteOpts) {
 		t.httpDataDir = &data.DataDir{
 			FS:     fsys,
 			Prefix: "http",
+		}
+	}
+}
+
+// WithMongoData takes an `fs.FS` of which to retrieve mongo document data.
+// This function assumes the data will be in a directory titled `mongo`.
+//
+// Usage example (using `embed.FS`):
+//
+//	//go:embed mongo/*
+//	var mongoData embed.FS
+//	. . .
+//	cucumber.NewSuite("test", cucumber.WithMongoData(httpData))
+func WithMongoData(fsys fs.FS) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		fmt.Printf("mongo data: %+v\n", fsys)
+		t.mongoDataDir = &data.DataDir{
+			FS:     fsys,
+			Prefix: "mongo",
 		}
 	}
 }

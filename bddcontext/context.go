@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/tigh-latte/go-bdd/internal/websocket"
 	"github.com/zeroflucs-given/generics/collections/stack"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type contextKey struct{}
@@ -46,6 +48,8 @@ type Context struct {
 
 	WS *WebsocketContext
 
+	MongoContext *MongoContext
+
 	IgnoreAlways []string
 }
 
@@ -63,6 +67,14 @@ type HTTPContext struct {
 	TestData fs.FS
 
 	Client *http.Client
+}
+
+type MongoContext struct {
+	IDs *stack.Stack[primitive.ObjectID]
+
+	TestData fs.FS
+
+	Client *mongo.Client
 }
 
 type WebsocketContext struct {

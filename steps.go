@@ -25,6 +25,7 @@ import (
 	"github.com/tigh-latte/go-bdd/bddcontext"
 	"github.com/tigh-latte/go-bdd/config"
 	"github.com/zeroflucs-given/generics/collections/stack"
+	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/yazgazan/jaydiff/diff"
 )
@@ -50,6 +51,13 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^there should be (\d+) files in the directory "([^"]*)" in bucket "([^"]*)$"`, ThereShouldBeFilesInDirectoryInBucket)
 	ctx.Step(`^the following files should exist in the corresponding s3 buckets:$`, TheFollowingFilesShouldExistInS3Buckets)
 	ctx.Step(`I delete the following files from the corresponding s3 buckets:$`, IDeleteFilesFromS3)
+
+	ctx.Step("^I put the following documents in the corresponding collections and databases", IPutDocumentsInMongo)
+	ctx.Step("^I put the following documents in the corresponding collections", IPutDocumentsInMongoColl)
+	ctx.Step(`^the following document IDs should exist in the corresponding mongo collections:$`, TheFollowingDocumentsShouldExistInMongoCollections)
+	// ctx.Step(`^the following documents should match the following files:$`, TheFollowingDocumentsShouldMatchTheFollowingFiles)
+	// ctx.Step(`I delete the following documents from the corresponding mongo :$`, IDeleteTheFollowingDocumentsFromTheCorrespondingMongo)
+	ctx.Step(`I drop the following mongo databases :$`, IDropMongoDatabase)
 
 	// General
 	ctx.Step(`^the headers:$`, TheHeaders)
@@ -94,6 +102,130 @@ func initSteps(ctx StepAdder) {
 
 func IAmUnauthenticated(ctx context.Context) context.Context {
 	return UseAuthentication(ctx, &NoAuthAuthentication{})
+}
+
+// MONGO FUNCTIONS
+func IPutDocumentsInMongo(ctx context.Context, table *godog.Table) error {
+	t := bddcontext.LoadContext(ctx)
+	for _, row := range table.Rows[1:] {
+		var (
+			db         = row.Cells[0].Value
+			collection = row.Cells[1].Value
+			file       = row.Cells[2].Value
+		)
+
+		r, err := t.MongoContext.TestData.Open(file)
+		if err != nil {
+			return fmt.Errorf("failed to load file '%s': %w", file, err)
+		}
+
+		// Load the collection
+		coll := t.MongoContext.Client.Database(db).Collection(collection)
+
+		// Load the documents from the file
+		var docs []interface{}
+		if err := json.NewDecoder(r).Decode(&docs); err != nil {
+			return fmt.Errorf("failed to decode json from file '%s': %w", file, err)
+		}
+
+		// Insert the documents
+		if _, err := coll.InsertMany(ctx, docs); err != nil {
+			return fmt.Errorf("failed to insert documents into collection '%s': %w", collection, err)
+		}
+	}
+	return nil
+}
+
+func IPutDocumentsInMongoColl(ctx context.Context, table *godog.Table) error {
+	t := bddcontext.LoadContext(ctx)
+	for _, row := range table.Rows[1:] {
+		var (
+			collection = row.Cells[0].Value
+			file       = row.Cells[1].Value
+		)
+
+		fmt.Println(t.TestID)
+		fmt.Println(t.ID)
+
+		r, err := t.MongoContext.TestData.Open(file)
+		if err != nil {
+			return fmt.Errorf("failed to load file '%s': %w", file, err)
+		}
+
+		// Load the collection
+		coll := t.MongoContext.Client.Database(t.TestID).Collection(collection)
+
+		// Load the documents from the file
+		var docs []interface{}
+		if err := json.NewDecoder(r).Decode(&docs); err != nil {
+			return fmt.Errorf("failed to decode json from file '%s': %w", file, err)
+		}
+
+		// Insert the documents
+		if _, err := coll.InsertMany(ctx, docs); err != nil {
+			return fmt.Errorf("failed to insert documents into collection '%s': %w", collection, err)
+		}
+	}
+	return nil
+}
+
+func TheFollowingDocumentsShouldExistInMongoCollections(ctx context.Context, table *godog.Table) error {
+	t := bddcontext.LoadContext(ctx)
+	for _, row := range table.Rows[1:] {
+		var (
+			db         = row.Cells[0].Value
+			collection = row.Cells[1].Value
+			id         = row.Cells[2].Value
+		)
+
+		// Load the collection
+		coll := t.MongoContext.Client.Database(db).Collection(collection)
+
+		// Load the document
+		var doc interface{}
+		if err := coll.FindOne(ctx, bson.M{"_id": id}).Decode(&doc); err != nil {
+			return fmt.Errorf("failed to find document in collection '%s': %w", collection, err)
+		}
+
+	}
+	return nil
+}
+
+// func TheFollowingDocumentsShouldMatchTheFollowingFiles(ctx context.Context, table *godog.Table) error {
+// 	t := bddcontext.LoadContext(ctx)
+// 	for _, row := range table.Rows[1:] {
+// 		var (
+// 			db         = row.Cells[0].Value
+// 			collection = row.Cells[1].Value
+// 			id         = row.Cells[2].Value
+// 			file       = row.Cells[3].Value
+// 		)
+
+// 		// Load the collection
+// 		coll := t.MongoClient.Database(db).Collection(collection)
+
+// 		// Load the document
+// 		var doc interface{}
+// 		if err := coll.FindOne(ctx, bson.M{"_id": id}).Decode(&doc); err != nil {
+// 			return fmt.Errorf("failed to find document in collection '%s': %w", collection, err)
+// 		}
+
+// 	}
+// 	return nil
+// }
+
+func IDropMongoDatabase(ctx context.Context, table *godog.Table) error {
+	t := bddcontext.LoadContext(ctx)
+	for _, row := range table.Rows[1:] {
+		var (
+			db = row.Cells[0].Value
+		)
+
+		if err := t.MongoContext.Client.Database(db).Drop(ctx); err != nil {
+			return fmt.Errorf("failed to drop database '%s': %w", db, err)
+		}
+	}
+	return nil
 }
 
 func IPutFilesIntoS3(ctx context.Context, table *godog.Table) error {
