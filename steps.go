@@ -617,11 +617,10 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, port, endpoint, 
 
 	bb, err := func() ([]byte, error) {
 		if payload != "" {
-			bb, err := json.Marshal(payload)
-			if err != nil {
-				return []byte{}, err
+			if !json.Valid([]byte(payload)) {
+				return []byte{}, nil
 			}
-			return bb, nil
+			return []byte(payload), nil
 		} else {
 			return []byte{}, nil
 		}
