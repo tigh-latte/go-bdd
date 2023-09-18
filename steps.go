@@ -58,7 +58,6 @@ func initSteps(ctx StepAdder) {
 	ctx.Step("^I put the following documents in the corresponding collections:$", IPutDocumentsInMongoColl)
 	ctx.Step(`^the following document IDs should exist in the corresponding mongo collections:$`, TheFollowingDocumentsShouldExistInMongoCollections)
 	ctx.Step(`^the following documents should match the following files:$`, TheFollowingDocumentsShouldMatchTheFollowingFiles)
-	ctx.Step(`^I ignore from all mongo documents:$`, IIgnoreFromAllMongoDocuments)
 	ctx.Step(`^the database document should match the following values:$`, TheDocumentShouldMatchTheFollowingValues)
 	ctx.Step(`^I drop the following mongo databases:$`, IDropMongoDatabase)
 
@@ -111,15 +110,6 @@ func IAmUnauthenticated(ctx context.Context) context.Context {
 func IWaitForSeconds(arg1 int) error {
 	ticker := time.NewTicker(time.Duration(arg1) * time.Second)
 	<-ticker.C
-	return nil
-}
-
-// IIgnoreFromAllMongoDocuments ignores the given fields from all mongo documents
-func IIgnoreFromAllMongoDocuments(ctx context.Context, table *godog.Table) error {
-	t := bddcontext.LoadContext(ctx)
-	for _, row := range table.Rows[1:] {
-		t.MongoContext.ToIgnore = append(t.MongoContext.ToIgnore, row.Cells[0].Value)
-	}
 	return nil
 }
 
