@@ -197,7 +197,7 @@ func TheFollowingDocumentsShouldExistInMongoCollections(ctx context.Context, tab
 	return nil
 }
 
-func TheDocumentShouldMatchTheFollowingValues(ctx context.Context, table *godog.Table) error {
+func TheDocumentShouldMatchTheFollowingValues(ctx context.Context, docString *godog.DocString) error {
 	t := bddcontext.LoadContext(ctx)
 
 	// Pop the ID and collection
@@ -215,29 +215,31 @@ func TheDocumentShouldMatchTheFollowingValues(ctx context.Context, table *godog.
 	coll := t.MongoContext.Client.Database(t.ID).Collection(collection)
 
 	// Load the document
-	var doc map[string]interface{}
+	var doc bson.M
 	if err := coll.FindOne(ctx, bson.M{"_id": id}).Decode(&doc); err != nil {
 		return fmt.Errorf("failed to find document in collection '%s': %w", collection, err)
 	}
 
-	for _, row := range table.Rows[1:] {
-		var (
-			key   = row.Cells[0].Value
-			value = row.Cells[1].Value
-		)
+	// Marshal the docstring to delete the keys which don't exist
+	var expDoc map[string]interface{}
+	if err := json.NewDecoder(strings.NewReader(docString.Content)).Decode(&expDoc); err != nil {
+		return fmt.Errorf("failed to decode json from docstring: %w", err)
+	}
 
-		// Check the key exists in the doc
-		if _, ok := doc[key]; !ok {
-			return fmt.Errorf("key '%s' does not exist in document", key)
-		}
-
-		// Check the value in the doc is the same as the value in the table
-		if doc[key] != value {
-			return fmt.Errorf("value for key '%s' does not match. expected: %s got: %v", key, value, doc[key])
+	for k := range doc {
+		if _, ok := expDoc[k]; !ok {
+			delete(doc, k)
 		}
 	}
 
-	return nil
+	// Marshal the document to bytes
+	b, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("failed to marshal document: %w", err)
+	}
+
+	// compare the documents
+	return compare(ctx, []byte(docString.Content), b, t.MongoContext.ToIgnore, nil)
 
 }
 
@@ -755,10 +757,10 @@ func TheResponseBodyShouldMatchJSONIgnoring(ctx context.Context, f string, table
 		return errors.New("no http request has been made")
 	}
 
-	return compare(ctx, buf.Bytes(), resp, table)
+	return compare(ctx, buf.Bytes(), resp, t.HTTP.ToIgnore, table)
 }
 
-func compare(ctx context.Context, l, r []byte, ignore *godog.Table) error {
+func compare(ctx context.Context, l, r []byte, scenarioIgnore []string, stepIgnore *godog.Table) error {
 	t := bddcontext.LoadContext(ctx)
 	var exp, got any
 
@@ -778,19 +780,21 @@ func compare(ctx context.Context, l, r []byte, ignore *godog.Table) error {
 	}
 
 	// Request specific ignores
-	for _, entry := range t.HTTP.ToIgnore {
+	for _, entry := range scenarioIgnore {
 		x := jp.MustParseString("$" + entry)
 		if err := x.Del(got); err != nil {
 			return fmt.Errorf("failed to remove '%s': %w", entry, err)
 		}
 	}
 	// Scenario specific ignores
-	for _, row := range ignore.Rows[1:] {
-		jpath := row.Cells[0].Value
+	if stepIgnore != nil {
+		for _, row := range stepIgnore.Rows[1:] {
+			jpath := row.Cells[0].Value
 
-		x := jp.MustParseString("$" + jpath)
-		if err := x.Del(got); err != nil {
-			return fmt.Errorf("failed to remove '%s': %w", jpath, err)
+			x := jp.MustParseString("$" + jpath)
+			if err := x.Del(got); err != nil {
+				return fmt.Errorf("failed to remove '%s': %w", jpath, err)
+			}
 		}
 	}
 
@@ -979,5 +983,5 @@ func TheWebsocketMessageToConnectionShouldMatchJSONIgnoring(ctx context.Context,
 		return errors.New("no messages received")
 	}
 
-	return compare(ctx, buf.Bytes(), msg, table)
+	return compare(ctx, buf.Bytes(), msg, t.HTTP.ToIgnore, table)
 }

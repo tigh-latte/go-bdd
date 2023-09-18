@@ -72,6 +72,7 @@ type HTTPContext struct {
 type MongoContext struct {
 	DocumentIDMap map[primitive.ObjectID]string
 	IDs           *stack.Stack[primitive.ObjectID]
+	ToIgnore      []string
 
 	TestData fs.FS
 
