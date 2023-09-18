@@ -205,9 +205,9 @@ func TheDocumentShouldMatchTheFollowingValues(ctx context.Context, table *godog.
 		return errors.New("no document ID has been set")
 	}
 
-	ok, collection := t.MongoContext.Collections.Pop()
+	collection, ok := t.MongoContext.DocumentIDMap[id]
 	if !ok {
-		return errors.New("no collection has been set")
+		return fmt.Errorf("no collection found for document ID '%s'", id)
 	}
 
 	// Load the collection
