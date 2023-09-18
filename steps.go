@@ -75,6 +75,7 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^I ignore from all responses:$`, IIgnoreFromAllResponses)
 	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d*)?([^"]*)"$`, ISendARequestTo)
 	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSON)
+	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSONAsString)
 	ctx.Step(`^the HTTP response code should be (\d*)$`, TheHTTPResponseCodeShouldBe)
 	ctx.Step(`^the response should be (\w*)$`, TheResponseShouldBe)
 	ctx.Step(`^the response is (\w*)$`, TheResponseShouldBe)
@@ -577,6 +578,119 @@ func IIgnoreFromAllResponses(ctx context.Context, table *godog.Table) context.Co
 
 func ISendARequestTo(ctx context.Context, verb, port, endpoint string) (context.Context, error) {
 	return ISendARequestToWithJSON(ctx, verb, port, endpoint, "")
+}
+
+
+func ISendARequestToWithJSONAsString(ctx context.Context, verb, port, endpoint, payload string) (context.Context, error) {
+	t := bddcontext.LoadContext(ctx)
+
+	uriPath, qp, err := func() (string, string, error) {
+		tmpl, err := t.Template.Parse(endpoint)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to parse template for endpoint '%s': %w", endpoint, err)
+		}
+
+		var buf bytes.Buffer
+		if err := tmpl.Execute(&buf, t.TemplateValues); err != nil {
+			return "", "", fmt.Errorf("failed to execute template for endpoint '%s': %w", endpoint, err)
+		}
+
+		parts := strings.Split(buf.String(), "?")
+		if len(parts) == 1 {
+			parts = append(parts, "")
+		}
+		u := url.URL{RawQuery: parts[1]}
+		qp := u.Query()
+		for k := range t.HTTP.QueryParams {
+			qp.Add(k, t.HTTP.QueryParams.Get(k))
+		}
+		return parts[0], qp.Encode(), nil
+	}()
+	if err != nil {
+		return ctx, err
+	}
+	url, err := url.Parse(viper.GetString("service.url"))
+	if err != nil {
+		return ctx, fmt.Errorf("failed to url parse service href: %w", err)
+	}
+	url.Path = uriPath
+	url.RawQuery = qp
+
+	bb, err := func() ([]byte, error) {
+		if payload != "" {
+			bb, err := json.Marshal(payload)
+			if err != nil {
+				return []byte{}, err
+			}
+			return bb, nil
+		} else {
+			return []byte{}, nil
+		}
+	}()
+	if err != nil {
+		return ctx, err
+	}
+
+	if err := t.HTTP.Requests.Push(bb); err != nil {
+		return ctx, fmt.Errorf("you've flown too close to the sun: %w", err)
+	}
+
+	req, err := http.NewRequest(verb, url.String(), bytes.NewBuffer(bb))
+	if err != nil {
+		return ctx, fmt.Errorf("failed to make request to '%s': %w", url.String(), err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+
+	for k, v := range t.HTTP.Headers {
+		for _, header := range v {
+			req.Header.Add(k, header)
+		}
+	}
+	for _, cookie := range t.HTTP.Cookies {
+		req.AddCookie(cookie)
+	}
+
+	if auth, ok := GetAuthentication(ctx); ok {
+		auth.ApplyHTTP(ctx, req)
+	}
+
+	resp, err := t.HTTP.Client.Do(req)
+	if err != nil {
+		return ctx, fmt.Errorf("failed to do request to '%s': %w", url.String(), err)
+	}
+
+	defer resp.Body.Close()
+
+	if err := t.HTTP.ResponseCodes.Push(resp.StatusCode); err != nil {
+		return ctx, fmt.Errorf("you've flown too close to the sun: %w", err)
+	}
+
+	rawResp, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ctx, fmt.Errorf("failed to read response from '%s': %w", url.String(), err)
+	}
+	if len(rawResp) == 0 {
+		rawResp = []byte{'{', '}'}
+	}
+
+	if err := t.HTTP.Responses.Push(rawResp); err != nil {
+		return ctx, fmt.Errorf("you've flown too close to the sun: %w", err)
+	}
+
+	ctx = bddcontext.WithContext(ctx, t)
+
+	return IStoreFromTheResponseForTemplating(ctx, &godog.Table{
+		Rows: []*messages.PickleTableRow{{}, {
+			Cells: []*messages.PickleTableCell{
+				{Value: ".meta.nextCursor"}, {Value: "next_cursor"},
+			},
+		}, {
+			Cells: []*messages.PickleTableCell{
+				{Value: ".errors[*].id"}, {Value: "error_id"},
+			},
+		}},
+	})
 }
 
 func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file string) (context.Context, error) {
