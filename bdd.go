@@ -24,6 +24,7 @@ import (
 	"github.com/tigh-latte/go-bdd/fake"
 	configinternal "github.com/tigh-latte/go-bdd/internal/config"
 	"github.com/zeroflucs-given/generics/collections/stack"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var godogOpts = godog.Options{
@@ -99,6 +100,9 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 			if err := clients.InitS3(opts.s3); err != nil {
 				panic(err)
 			}
+			if err := clients.InitMongo(opts.mongo); err != nil {
+				panic(err)
+			}
 		})
 
 		ctx.BeforeSuite(func() {
@@ -143,6 +147,12 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 		sd := &bddcontext.Context{
 			TemplateValues: make(map[string]any),
 			S3Client:       clients.S3Client,
+			MongoContext: &bddcontext.MongoContext{
+				IDs:           stack.NewStack[primitive.ObjectID](20),
+				DocumentIDMap: make(map[primitive.ObjectID]string, 20),
+				TestData:      opts.mongoDataDir,
+				Client:        clients.MongoClient,
+			},
 			HTTP: &bddcontext.HTTPContext{
 				Headers:       make(http.Header, 0),
 				Cookies:       make([]*http.Cookie, len(opts.cookies)),
