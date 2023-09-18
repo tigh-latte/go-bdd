@@ -53,12 +53,13 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^the following files should exist in the corresponding s3 buckets:$`, TheFollowingFilesShouldExistInS3Buckets)
 	ctx.Step(`I delete the following files from the corresponding s3 buckets:$`, IDeleteFilesFromS3)
 
-	ctx.Step("^I put the following documents in the corresponding collections and databases", IPutDocumentsInMongo)
-	ctx.Step("^I put the following documents in the corresponding collections", IPutDocumentsInMongoColl)
+	//Mongo
+	ctx.Step("^I put the following documents in the corresponding collections and databases:$", IPutDocumentsInMongo)
+	ctx.Step("^I put the following documents in the corresponding collections:$", IPutDocumentsInMongoColl)
 	ctx.Step(`^the following document IDs should exist in the corresponding mongo collections:$`, TheFollowingDocumentsShouldExistInMongoCollections)
 	ctx.Step(`^the following documents should match the following files:$`, TheFollowingDocumentsShouldMatchTheFollowingFiles)
 	ctx.Step(`^the database document should match the following values:$`, TheDocumentShouldMatchTheFollowingValues)
-	ctx.Step(`I drop the following mongo databases :$`, IDropMongoDatabase)
+	ctx.Step(`^I drop the following mongo databases:$`, IDropMongoDatabase)
 
 	// General
 	ctx.Step(`^the headers:$`, TheHeaders)
