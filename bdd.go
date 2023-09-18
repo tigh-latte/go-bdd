@@ -149,7 +149,8 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			S3Client:       clients.S3Client,
 			MongoContext: &bddcontext.MongoContext{
 				IDs:           stack.NewStack[primitive.ObjectID](20),
-				DocumentIDMap: make(map[primitive.ObjectID]string, 20),
+				DocumentIDMap: make(map[primitive.ObjectID]string, 0),
+				ToIgnore:      make([]string, 0),
 				TestData:      opts.mongoDataDir,
 				Client:        clients.MongoClient,
 			},
