@@ -75,7 +75,7 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^I ignore from all responses:$`, IIgnoreFromAllResponses)
 	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d*)?([^"]*)"$`, ISendARequestTo)
 	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSON)
-	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSONAsString)
+	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d+)?([^"]*)" with JSON:"$`, ISendARequestToWithJSONAsString)
 	ctx.Step(`^the HTTP response code should be (\d*)$`, TheHTTPResponseCodeShouldBe)
 	ctx.Step(`^the response should be (\w*)$`, TheResponseShouldBe)
 	ctx.Step(`^the response is (\w*)$`, TheResponseShouldBe)
@@ -579,7 +579,6 @@ func IIgnoreFromAllResponses(ctx context.Context, table *godog.Table) context.Co
 func ISendARequestTo(ctx context.Context, verb, port, endpoint string) (context.Context, error) {
 	return ISendARequestToWithJSON(ctx, verb, port, endpoint, "")
 }
-
 
 func ISendARequestToWithJSONAsString(ctx context.Context, verb, port, endpoint, payload string) (context.Context, error) {
 	t := bddcontext.LoadContext(ctx)
