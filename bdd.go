@@ -148,9 +148,10 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			TemplateValues: make(map[string]any),
 			S3Client:       clients.S3Client,
 			MongoContext: &bddcontext.MongoContext{
-				IDs:      stack.NewStack[primitive.ObjectID](20),
-				TestData: opts.mongoDataDir,
-				Client:   clients.MongoClient,
+				IDs:         stack.NewStack[primitive.ObjectID](20),
+				Collections: stack.NewStack[string](20),
+				TestData:    opts.mongoDataDir,
+				Client:      clients.MongoClient,
 			},
 			HTTP: &bddcontext.HTTPContext{
 				Headers:       make(http.Header, 0),

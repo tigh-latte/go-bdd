@@ -70,7 +70,8 @@ type HTTPContext struct {
 }
 
 type MongoContext struct {
-	IDs *stack.Stack[primitive.ObjectID]
+	IDs         *stack.Stack[primitive.ObjectID]
+	Collections *stack.Stack[string]
 
 	TestData fs.FS
 

@@ -1,7 +1,6 @@
 package bdd
 
 import (
-	"fmt"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -322,7 +321,6 @@ func WithTestData(fsys fs.FS) TestSuiteOptionFunc {
 //	. . .
 //	cucumber.NewSuite("test", cucumber.WithHTTPData(httpData))
 func WithHTTPData(fsys fs.FS) TestSuiteOptionFunc {
-	fmt.Printf("http data: %+v\n", fsys)
 	return func(t *testSuiteOpts) {
 		t.httpDataDir = &data.DataDir{
 			FS:     fsys,
@@ -342,7 +340,6 @@ func WithHTTPData(fsys fs.FS) TestSuiteOptionFunc {
 //	cucumber.NewSuite("test", cucumber.WithMongoData(httpData))
 func WithMongoData(fsys fs.FS) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		fmt.Printf("mongo data: %+v\n", fsys)
 		t.mongoDataDir = &data.DataDir{
 			FS:     fsys,
 			Prefix: "mongo",
