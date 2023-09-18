@@ -251,22 +251,6 @@ func TheDocumentShouldMatchTheFollowingValues(ctx context.Context, docString *go
 	// compare the documents
 	return compare(ctx, []byte(docString.Content), b, t.MongoContext.ToIgnore, nil)
 
-	// 	var (
-	// 		key   = row.Cells[0].Value
-	// 		value = row.Cells[1].Value
-	// 	)
-
-	// 	// Check the key exists in the doc
-	// 	if _, ok := doc[key]; !ok {
-	// 		return fmt.Errorf("key '%s' does not exist in document", key)
-	// 	}
-
-	// 	// Check the value in the doc is the same as the value in the table
-	// 	if doc[key] != value {
-	// 		return fmt.Errorf("value for key '%s' does not match. expected: %s got: %v", key, value, doc[key])
-	// 	}
-	// }
-
 }
 
 func TheFollowingDocumentsShouldMatchTheFollowingFiles(ctx context.Context, table *godog.Table) error {
