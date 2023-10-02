@@ -682,6 +682,10 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, port, hostUrl, e
 
 	ctx = bddcontext.WithContext(ctx, t)
 
+	//if the response type is not json, don't try to parse it.This is usefult for analysing content types like pdfs
+	if resp.Header.Get("Content-Type") != "application/json" {
+		return ctx, nil
+	}
 	return IStoreFromTheResponseForTemplating(ctx, &godog.Table{
 		Rows: []*messages.PickleTableRow{{}, {
 			Cells: []*messages.PickleTableCell{
@@ -802,6 +806,10 @@ func ISendARequestToWithJSON(ctx context.Context, verb, port, hostUrl, endpoint,
 
 	ctx = bddcontext.WithContext(ctx, t)
 
+	//if the response type is not json, don't try to parse it.This is usefult for analysing content types like pdfs
+	if resp.Header.Get("Content-Type") != "application/json" {
+		return ctx, nil
+	}
 	return IStoreFromTheResponseForTemplating(ctx, &godog.Table{
 		Rows: []*messages.PickleTableRow{{}, {
 			Cells: []*messages.PickleTableCell{
