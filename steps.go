@@ -575,11 +575,11 @@ func IIgnoreFromAllResponses(ctx context.Context, table *godog.Table) context.Co
 	return bddcontext.WithContext(ctx, t)
 }
 
-func ISendARequestTo(ctx context.Context, verb, port, endpoint string) (context.Context, error) {
-	return ISendARequestToWithJSON(ctx, verb, port, endpoint, "")
+func ISendARequestTo(ctx context.Context, verb, port, hostUrl, endpoint string) (context.Context, error) {
+	return ISendARequestToWithJSON(ctx, verb, port, hostUrl, endpoint, "")
 }
 
-func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file string) (context.Context, error) {
+func ISendARequestToWithJSON(ctx context.Context, verb, port, hostUrl, endpoint, file string) (context.Context, error) {
 	t := bddcontext.LoadContext(ctx)
 	if file != "" {
 		file = file + ".json"
@@ -609,7 +609,11 @@ func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file str
 	if err != nil {
 		return ctx, err
 	}
-	url, err := url.Parse(viper.GetString("service.url"))
+	//if host url specified, use it, otherwise use the service url from config
+	if len(hostUrl) == 0 {
+		hostUrl = viper.GetString("service.url")
+	}
+	url, err := url.Parse(hostUrl)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to url parse service href: %w", err)
 	}
