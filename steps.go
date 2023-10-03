@@ -614,6 +614,8 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, host, port, endp
 	}
 	if host == "" {
 		host = viper.GetString("service.url")
+	} else {
+		host = "https://" + host
 	}
 	url, err := url.Parse(host)
 	if err != nil {
