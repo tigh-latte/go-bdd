@@ -50,7 +50,7 @@ func (sa *stepAdder) Step(expr, stepFunc any) {
 const (
 	REISendARequestTo                 = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d*)?([^"]*)"$`
 	REISendARequestToWithJSON         = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON "([^"]*)"$`
-	REISendARequestToWithJSONAsString = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON:"$`
+	REISendARequestToWithJSONAsString = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON:$`
 )
 
 func initSteps(ctx StepAdder) {
