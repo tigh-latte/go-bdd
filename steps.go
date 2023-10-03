@@ -48,7 +48,9 @@ func (sa *stepAdder) Step(expr, stepFunc any) {
 
 // Regex strings.
 const (
-	ReISendARequestTo = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d*)?([^"]*)"$`
+	REISendARequestTo                 = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d*)?([^"]*)"$`
+	REISendARequestToWithJSON         = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON "([^"]*)"$`
+	REISendARequestToWithJSONAsString = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON:"$`
 )
 
 func initSteps(ctx StepAdder) {
@@ -78,9 +80,9 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^I set the query params:$`, ISetTheQueryParams)
 	ctx.Step(`^I add the query params:$`, IAddTheQueryParams)
 	ctx.Step(`^I ignore from all responses:$`, IIgnoreFromAllResponses)
-	ctx.Step(ReISendARequestTo, ISendARequestTo)
-	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([a-zA-Z0-9\.-_]*)?(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSON)
-	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([a-zA-Z0-9\.-_]*)?(:\d+)?([^"]*)" with JSON:"$`, ISendARequestToWithJSONAsString)
+	ctx.Step(REISendARequestTo, ISendARequestTo)
+	ctx.Step(REISendARequestToWithJSON, ISendARequestToWithJSON)
+	ctx.Step(REISendARequestToWithJSONAsString, ISendARequestToWithJSONAsString)
 	ctx.Step(`^the HTTP response code should be (\d*)$`, TheHTTPResponseCodeShouldBe)
 	ctx.Step(`^the response should be (\w*)$`, TheResponseShouldBe)
 	ctx.Step(`^the response is (\w*)$`, TheResponseShouldBe)

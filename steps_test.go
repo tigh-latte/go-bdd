@@ -20,7 +20,7 @@ import (
 )
 
 func TestISendARequestToRegex(t *testing.T) {
-	matcher := regexp.MustCompile(bdd.ReISendARequestTo)
+	matcher := regexp.MustCompile(bdd.REISendARequestTo)
 	tests := map[string]struct {
 		sentence string
 
