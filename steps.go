@@ -53,7 +53,7 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^the following files should exist in the corresponding s3 buckets:$`, TheFollowingFilesShouldExistInS3Buckets)
 	ctx.Step(`I delete the following files from the corresponding s3 buckets:$`, IDeleteFilesFromS3)
 
-	//Mongo
+	// Mongo
 	ctx.Step("^I put the following documents in the corresponding collections and databases:$", IPutDocumentsInMongo)
 	ctx.Step("^I put the following documents in the corresponding collections:$", IPutDocumentsInMongoColl)
 	ctx.Step(`^the following document IDs should exist in the corresponding mongo collections:$`, TheFollowingDocumentsShouldExistInMongoCollections)
@@ -73,9 +73,9 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^I set the query params:$`, ISetTheQueryParams)
 	ctx.Step(`^I add the query params:$`, IAddTheQueryParams)
 	ctx.Step(`^I ignore from all responses:$`, IIgnoreFromAllResponses)
-	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d*)?([^"]*)"$`, ISendARequestTo)
-	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSON)
-	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "(:\d+)?([^"]*)" with JSON:"$`, ISendARequestToWithJSONAsString)
+	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([a-zA-Z0-9\.-_]*)?(:\d*)?([^"]*)"$`, ISendARequestTo)
+	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([a-zA-Z0-9\.-_]*)?(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSON)
+	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([a-zA-Z0-9\.-_]*)?(:\d+)?([^"]*)" with JSON:"$`, ISendARequestToWithJSONAsString)
 	ctx.Step(`^the HTTP response code should be (\d*)$`, TheHTTPResponseCodeShouldBe)
 	ctx.Step(`^the response should be (\w*)$`, TheResponseShouldBe)
 	ctx.Step(`^the response is (\w*)$`, TheResponseShouldBe)
@@ -241,7 +241,6 @@ func TheDocumentShouldMatchTheFollowingValues(ctx context.Context, docString *go
 
 	// compare the documents
 	return compare(ctx, []byte(docString.Content), b, t.MongoContext.ToIgnore, nil)
-
 }
 
 func TheFollowingDocumentsShouldMatchTheFollowingFiles(ctx context.Context, table *godog.Table) error {
@@ -287,9 +286,7 @@ func TheFollowingDocumentsShouldMatchTheFollowingFiles(ctx context.Context, tabl
 func IDropMongoDatabase(ctx context.Context, table *godog.Table) error {
 	t := bddcontext.LoadContext(ctx)
 	for _, row := range table.Rows[1:] {
-		var (
-			db = row.Cells[0].Value
-		)
+		db := row.Cells[0].Value
 
 		if err := t.MongoContext.Client.Database(db).Drop(ctx); err != nil {
 			return fmt.Errorf("failed to drop database '%s': %w", db, err)
@@ -576,11 +573,11 @@ func IIgnoreFromAllResponses(ctx context.Context, table *godog.Table) context.Co
 	return bddcontext.WithContext(ctx, t)
 }
 
-func ISendARequestTo(ctx context.Context, verb, port, endpoint string) (context.Context, error) {
-	return ISendARequestToWithJSON(ctx, verb, port, endpoint, "")
+func ISendARequestTo(ctx context.Context, verb, host, port, endpoint string) (context.Context, error) {
+	return ISendARequestToWithJSON(ctx, verb, host, port, endpoint, "")
 }
 
-func ISendARequestToWithJSONAsString(ctx context.Context, verb, port, endpoint, payload string) (context.Context, error) {
+func ISendARequestToWithJSONAsString(ctx context.Context, verb, host, port, endpoint, payload string) (context.Context, error) {
 	t := bddcontext.LoadContext(ctx)
 
 	uriPath, qp, err := func() (string, string, error) {
@@ -608,7 +605,10 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, port, endpoint, 
 	if err != nil {
 		return ctx, err
 	}
-	url, err := url.Parse(viper.GetString("service.url"))
+	if host == "" {
+		host = viper.GetString("service.url")
+	}
+	url, err := url.Parse(host)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to url parse service href: %w", err)
 	}
@@ -621,9 +621,9 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, port, endpoint, 
 				return []byte{}, nil
 			}
 			return []byte(payload), nil
-		} else {
-			return []byte{}, nil
 		}
+
+		return []byte{}, nil
 	}()
 	if err != nil {
 		return ctx, err
@@ -678,20 +678,10 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, port, endpoint, 
 
 	ctx = bddcontext.WithContext(ctx, t)
 
-	return IStoreFromTheResponseForTemplating(ctx, &godog.Table{
-		Rows: []*messages.PickleTableRow{{}, {
-			Cells: []*messages.PickleTableCell{
-				{Value: ".meta.nextCursor"}, {Value: "next_cursor"},
-			},
-		}, {
-			Cells: []*messages.PickleTableCell{
-				{Value: ".errors[*].id"}, {Value: "error_id"},
-			},
-		}},
-	})
+	return ctx, nil
 }
 
-func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file string) (context.Context, error) {
+func ISendARequestToWithJSON(ctx context.Context, verb, host, _, endpoint, file string) (context.Context, error) {
 	t := bddcontext.LoadContext(ctx)
 	if file != "" {
 		file = file + ".json"
@@ -721,7 +711,10 @@ func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file str
 	if err != nil {
 		return ctx, err
 	}
-	url, err := url.Parse(viper.GetString("service.url"))
+	if host == "" {
+		host = viper.GetString("service.url")
+	}
+	url, err := url.Parse(host)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to url parse service href: %w", err)
 	}
@@ -794,17 +787,7 @@ func ISendARequestToWithJSON(ctx context.Context, verb, port, endpoint, file str
 
 	ctx = bddcontext.WithContext(ctx, t)
 
-	return IStoreFromTheResponseForTemplating(ctx, &godog.Table{
-		Rows: []*messages.PickleTableRow{{}, {
-			Cells: []*messages.PickleTableCell{
-				{Value: ".meta.nextCursor"}, {Value: "next_cursor"},
-			},
-		}, {
-			Cells: []*messages.PickleTableCell{
-				{Value: ".errors[*].id"}, {Value: "error_id"},
-			},
-		}},
-	})
+	return ctx, nil
 }
 
 func TheHTTPResponseCodeShouldBe(ctx context.Context, code int) error {
