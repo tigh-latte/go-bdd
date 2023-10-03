@@ -3,6 +3,8 @@ package bdd_test
 import (
 	"context"
 	"io/fs"
+	"net/http"
+	"regexp"
 	"testing"
 	"testing/fstest"
 
@@ -16,6 +18,76 @@ import (
 	"github.com/tigh-latte/go-bdd/internal/data"
 	"github.com/tigh-latte/go-bdd/mocks"
 )
+
+func TestISendARequestToRegex(t *testing.T) {
+	matcher := regexp.MustCompile(bdd.ReISendARequestTo)
+	tests := map[string]struct {
+		sentence string
+
+		expVerb string
+		expHost string
+		expPort string
+		expPath string
+	}{
+		"GET full url": {
+			sentence: `I send a GET request to "wow.test.localhost:8000/api/v1/holyhell"`,
+			expVerb:  http.MethodGet,
+			expPath:  "/api/v1/holyhell",
+			expPort:  ":8000",
+			expHost:  "wow.test.localhost",
+		},
+		"GET port:path only": {
+			sentence: `I send a GET request to ":6000/api/v1/holyhell"`,
+			expVerb:  http.MethodGet,
+			expPort:  ":6000",
+			expPath:  "/api/v1/holyhell",
+		},
+		"GET host/path only": {
+			sentence: `I send a GET request to "wow.test.localhost/api/v1/holyhell"`,
+			expVerb:  http.MethodGet,
+			expHost:  "wow.test.localhost",
+			expPath:  "/api/v1/holyhell",
+		},
+		"GET path only": {
+			sentence: `I send a GET request to "/api/v1/holyhell"`,
+			expVerb:  http.MethodGet,
+			expPath:  "/api/v1/holyhell",
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			matches := matcher.FindAllStringSubmatch(test.sentence, -1)
+			if len(matches) == 0 {
+				t.Fatalf("no matches: %q", test.sentence)
+			}
+
+			match := matches[0]
+
+			var (
+				verb = match[1]
+				host = match[2]
+				port = match[3]
+				path = match[4]
+			)
+
+			if test.expVerb != verb {
+				t.Fatalf("wrong verb. want=%q got=%q", test.expVerb, verb)
+			}
+			if test.expHost != host {
+				t.Fatalf("wrong host. want=%q got=%q", test.expHost, host)
+			}
+			if test.expPort != port {
+				t.Fatalf("wrong port. want=%q got=%q", test.expPort, port)
+			}
+			if test.expPath != path {
+				t.Fatalf("wrong path. want=%q got=%q", test.expPath, path)
+			}
+		})
+	}
+}
 
 func Test_IPutFilesIntoS3(t *testing.T) {
 	tests := map[string]struct {

@@ -46,6 +46,11 @@ func (sa *stepAdder) Step(expr, stepFunc any) {
 	}())
 }
 
+// Regex strings.
+const (
+	ReISendARequestTo = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d*)?([^"]*)"$`
+)
+
 func initSteps(ctx StepAdder) {
 	// S3
 	ctx.Step(`^I put the following files into the corresponding s3 buckets:$`, IPutFilesIntoS3)
@@ -73,7 +78,7 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^I set the query params:$`, ISetTheQueryParams)
 	ctx.Step(`^I add the query params:$`, IAddTheQueryParams)
 	ctx.Step(`^I ignore from all responses:$`, IIgnoreFromAllResponses)
-	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([a-zA-Z0-9\.-_]*)?(:\d*)?([^"]*)"$`, ISendARequestTo)
+	ctx.Step(ReISendARequestTo, ISendARequestTo)
 	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([a-zA-Z0-9\.-_]*)?(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSON)
 	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([a-zA-Z0-9\.-_]*)?(:\d+)?([^"]*)" with JSON:"$`, ISendARequestToWithJSONAsString)
 	ctx.Step(`^the HTTP response code should be (\d*)$`, TheHTTPResponseCodeShouldBe)
