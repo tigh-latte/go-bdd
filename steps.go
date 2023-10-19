@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"net/http"
 	"net/url"
@@ -21,10 +22,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/cucumber/godog"
 	messages "github.com/cucumber/messages/go/v21"
+	"github.com/makiuchi-d/gozxing"
+	"github.com/makiuchi-d/gozxing/qrcode"
 	"github.com/ohler55/ojg/jp"
 	"github.com/spf13/viper"
+	"github.com/srwiley/oksvg"
+	"github.com/srwiley/rasterx"
 	"github.com/tigh-latte/go-bdd/bddcontext"
 	"github.com/tigh-latte/go-bdd/config"
+	"github.com/xlzd/gotp"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -73,7 +79,13 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^I store for templating:$`, IStoreForTemplating)
 	ctx.Step(`^I store from the response for templating:$`, IStoreFromTheResponseForTemplating)
 	ctx.Step(`^I am unauthenticated$`, IAmUnauthenticated)
-	ctx.Step(`^I wait for (\d+) seconds$`, IWaitForSeconds)
+	ctx.Step(`^I wait for (\d+) second(s)?$`, IWaitForSeconds)
+
+	// MFA
+	ctx.Step(`I create a one time passcode from "([^"]+)"$`, ICreateAOneTimePasscodeFrom)
+
+	// QR code
+	ctx.Step(`^I decode the QR code "(.+)"$`, IDecodeTheQRCode)
 
 	// HTTP
 	ctx.Step(`^The cookies:$`, TheCookies)
@@ -115,9 +127,61 @@ func IAmUnauthenticated(ctx context.Context) context.Context {
 	return UseAuthentication(ctx, &NoAuthAuthentication{})
 }
 
-func IWaitForSeconds(arg1 int) error {
-	ticker := time.NewTicker(time.Duration(arg1) * time.Second)
-	<-ticker.C
+func IWaitForSeconds(t int, _ string) error {
+	tick := time.NewTicker(time.Duration(t) * time.Second)
+	defer tick.Stop()
+	<-tick.C
+	return nil
+}
+
+func ICreateAOneTimePasscodeFrom(ctx context.Context, otpUrl string) error {
+	t := bddcontext.LoadContext(ctx)
+	otpUrl, err := TemplateValue(otpUrl).Render(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to render otpUrl: %w", err)
+	}
+	u, err := url.Parse(otpUrl)
+	if err != nil {
+		return fmt.Errorf("failed to parse otp url %q: %w", otpUrl, err)
+	}
+	totp := gotp.NewDefaultTOTP(u.Query().Get("secret"))
+
+	code := totp.AtTime(time.Now())
+	t.TemplateValues["otp"] = code
+	return nil
+}
+
+func IDecodeTheQRCode(ctx context.Context, code string) error {
+	t := bddcontext.LoadContext(ctx)
+	code, err := TemplateValue(code).Render(ctx)
+	if err != nil {
+		return err
+	}
+
+	icon, err := oksvg.ReadIconStream(strings.NewReader(code))
+	if err != nil {
+		return fmt.Errorf("failed to read icon stream for qrcode: %w", err)
+	}
+	w, h := int(icon.ViewBox.W), int(icon.ViewBox.H)
+	icon.SetTarget(0, 0, float64(w), float64(h))
+	rgba := image.NewRGBA(image.Rect(0, 0, w, h))
+	icon.Draw(rasterx.NewDasher(w, h, rasterx.NewScannerGV(w, h, rgba, rgba.Bounds())), 1)
+
+	bmp, err := gozxing.NewBinaryBitmapFromImage(rgba)
+	if err != nil {
+		return fmt.Errorf("failed to create binary bitmap: %w", err)
+	}
+	rdr := qrcode.NewQRCodeReader()
+	result, err := rdr.Decode(bmp, nil)
+	if err != nil {
+		return fmt.Errorf("failed to decode qr code: %w", err)
+	}
+
+	if err = t.QRCodes.Push(result); err != nil {
+		return fmt.Errorf("failed to add decoded qr code to stack: %w", err)
+	}
+
+	t.TemplateValues["qrcode_text"] = result.String()
 	return nil
 }
 
@@ -414,17 +478,23 @@ func TheFollowingFilesShouldExistInS3Buckets(ctx context.Context, table *godog.T
 	return nil
 }
 
-func TheHeaders(ctx context.Context, table *godog.Table) context.Context {
+func TheHeaders(ctx context.Context, table *godog.Table) (context.Context, error) {
 	t := bddcontext.LoadContext(ctx)
 	for _, row := range table.Rows[1:] {
 		var (
-			key = row.Cells[0].Value
-			val = row.Cells[1].Value
+			key, kErr = TemplateValue(row.Cells[0].Value).Render(ctx)
+			val, vErr = TemplateValue(row.Cells[1].Value).Render(ctx)
 		)
+		if kErr != nil {
+			return ctx, fmt.Errorf("failed to render header key %q: %w", key, kErr)
+		}
+		if vErr != nil {
+			return ctx, fmt.Errorf("failed to render header value %q: %w", val, vErr)
+		}
 		t.HTTP.Headers.Set(key, val)
 	}
 
-	return bddcontext.WithContext(ctx, t)
+	return bddcontext.WithContext(ctx, t), nil
 }
 
 func IStoreForTemplating(ctx context.Context, table *godog.Table) (context.Context, error) {
@@ -624,25 +694,7 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, host, port, endp
 	url.Path = uriPath
 	url.RawQuery = qp
 
-	bb, err := func() ([]byte, error) {
-		if payload != "" {
-			if !json.Valid([]byte(payload)) {
-				return []byte{}, nil
-			}
-			return []byte(payload), nil
-		}
-
-		return []byte{}, nil
-	}()
-	if err != nil {
-		return ctx, err
-	}
-
-	if err := t.HTTP.Requests.Push(bb); err != nil {
-		return ctx, fmt.Errorf("you've flown too close to the sun: %w", err)
-	}
-
-	req, err := http.NewRequest(verb, url.String(), bytes.NewBuffer(bb))
+	req, err := http.NewRequest(verb, url.String(), nil)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to make request to '%s': %w", url.String(), err)
 	}
@@ -661,6 +713,30 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, host, port, endp
 	if auth, ok := GetAuthentication(ctx); ok {
 		auth.ApplyHTTP(ctx, req)
 	}
+
+	bb, err := func() ([]byte, error) {
+		if payload != "" {
+			payload, err = TemplateValue(payload).Render(ctx)
+			if err != nil {
+				return []byte{}, fmt.Errorf("failed to JSON body: %w", err)
+			}
+			if !json.Valid([]byte(payload)) {
+				return []byte{}, nil
+			}
+			return []byte(payload), nil
+		}
+
+		return []byte{}, nil
+	}()
+	if err != nil {
+		return ctx, err
+	}
+
+	if err := t.HTTP.Requests.Push(bb); err != nil {
+		return ctx, fmt.Errorf("you've flown too close to the sun: %w", err)
+	}
+
+	req.Body = io.NopCloser(bytes.NewBuffer(bb))
 
 	resp, err := t.HTTP.Client.Do(req)
 	if err != nil {

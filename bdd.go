@@ -16,6 +16,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
 	"github.com/google/uuid"
+	"github.com/makiuchi-d/gozxing"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/tigh-latte/go-bdd/bddcontext"
@@ -147,6 +148,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 		sd := &bddcontext.Context{
 			TemplateValues: make(map[string]any),
 			S3Client:       clients.S3Client,
+			QRCodes:        stack.NewStack[*gozxing.Result](20),
 			MongoContext: &bddcontext.MongoContext{
 				IDs:           stack.NewStack[primitive.ObjectID](20),
 				DocumentIDMap: make(map[primitive.ObjectID]string, 0),
@@ -192,6 +194,11 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			sd.Template.Funcs(template.FuncMap{
 				"date_add": func(year, month, days int) string {
 					return today.AddDate(year, month, days).Format("2006-01-02")
+				},
+				"add": func(l, r any) int {
+					left := toInt(l)
+					right := toInt(r)
+					return left + right
 				},
 				"assert_future":      assertFuture,
 				"assert_json_string": assertJsonString,

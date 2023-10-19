@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/makiuchi-d/gozxing"
 	"github.com/tigh-latte/go-bdd/internal/websocket"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -45,6 +46,8 @@ type Context struct {
 		PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
 		DeleteObjects(context.Context, *s3.DeleteObjectsInput, ...func(*s3.Options)) (*s3.DeleteObjectsOutput, error)
 	}
+
+	QRCodes *stack.Stack[*gozxing.Result]
 
 	WS *WebsocketContext
 
