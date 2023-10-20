@@ -38,6 +38,10 @@ func Sentence(words int) string {
 	return gofakeit.Sentence(words)
 }
 
+func Username() string {
+	return gofakeit.Username()
+}
+
 func GetInfo() string {
 	bb, _ := json.MarshalIndent(struct{ Seed int64 }{Seed: currentSeed}, "", "    ")
 	return string(bb)
