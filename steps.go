@@ -54,7 +54,7 @@ func (sa *stepAdder) Step(expr, stepFunc any) {
 
 // Regex strings.
 const (
-	REISendARequestTo                 = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d*)?([^"]*)"$`
+	REISendARequestTo                 = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)"$`
 	REISendARequestToWithJSON         = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON "([^"]*)"$`
 	REISendARequestToWithJSONAsString = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON:$`
 )
@@ -798,6 +798,8 @@ func ISendARequestToWithJSON(ctx context.Context, verb, host, _, endpoint, file 
 	}
 	if host == "" {
 		host = viper.GetString("service.url")
+	} else {
+		host = "https://" + host
 	}
 	url, err := url.Parse(host)
 	if err != nil {
