@@ -445,7 +445,7 @@ func ThereShouldBeFilesInDirectoryInBucket(ctx context.Context, exp int32, key, 
 		if err != nil {
 			return fmt.Errorf("error fetching page %d in bucket '%s' with prefix '%s': %w", pageCount, bucket, key, err)
 		}
-		total += page.KeyCount
+		total += *page.KeyCount
 	}
 
 	if exp != total {
