@@ -46,3 +46,11 @@ type NoAuthAuthentication struct{}
 
 func (n *NoAuthAuthentication) ApplyHTTP(ctx context.Context, r *http.Request) {
 }
+
+type BearerAuthentication struct {
+	Token string
+}
+
+func (d BearerAuthentication) ApplyHTTP(ctx context.Context, r *http.Request) {
+	r.Header.Set("Authorization", "Bearer "+d.Token)
+}
