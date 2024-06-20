@@ -23,17 +23,6 @@ func InitS3(opts *S3Options) error {
 		return nil
 	}
 
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string,
-		options ...interface{},
-	) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			PartitionID:       "aws",
-			URL:               opts.Host,
-			SigningRegion:     "dev",
-			HostnameImmutable: true,
-		}, nil
-	})
-
 	statusCredentialProvider := aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
 		return aws.Credentials{
 			AccessKeyID:     opts.Key,
@@ -44,14 +33,17 @@ func InitS3(opts *S3Options) error {
 	cfg, err := awsconfig.LoadDefaultConfig(
 		context.TODO(),
 		awsconfig.WithRegion("dev"),
-		awsconfig.WithEndpointResolverWithOptions(customResolver),
+		// awsconfig.WithEndpointResolverWithOptions(customResolver),
 		awsconfig.WithCredentialsProvider(aws.CredentialsProvider(statusCredentialProvider)),
 	)
 	if err != nil {
 		return err
 	}
 
-	if S3Client = s3.NewFromConfig(cfg); S3Client == nil {
+	if S3Client = s3.NewFromConfig(
+		cfg,
+		s3.WithEndpointResolverV2(endpoint[s3.EndpointParameters](opts.Host)),
+	); S3Client == nil {
 		return errors.New("aws client nil")
 	}
 

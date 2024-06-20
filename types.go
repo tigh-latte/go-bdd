@@ -22,6 +22,7 @@ type S3 interface {
 
 type StepAdder interface {
 	Step(expr interface{}, stepFunc interface{})
+	Given(expr interface{}, stepFunc interface{})
 }
 
 type TestCustomStepFunc func(sm StepAdder)

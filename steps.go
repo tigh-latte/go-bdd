@@ -19,13 +19,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/cucumber/godog"
 	messages "github.com/cucumber/messages/go/v21"
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
 	"github.com/ohler55/ojg/jp"
-	"github.com/spf13/viper"
 	"github.com/srwiley/oksvg"
 	"github.com/srwiley/rasterx"
 	"github.com/tigh-latte/go-bdd/bddcontext"
@@ -38,11 +39,11 @@ import (
 )
 
 type stepAdder struct {
-	ctx StepAdder
+	StepAdder
 }
 
 func (sa *stepAdder) Step(expr, stepFunc any) {
-	sa.ctx.Step(expr, func() any {
+	sa.StepAdder.Step(expr, func() any {
 		if config.IsDryRun() {
 			return func() error {
 				return godog.ErrSkip
@@ -52,19 +53,17 @@ func (sa *stepAdder) Step(expr, stepFunc any) {
 	}())
 }
 
-// Regex strings.
-const (
-	REISendARequestTo                 = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)"$`
-	REISendARequestToWithJSON         = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON "([^"]*)"$`
-	REISendARequestToWithJSONAsString = `^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON:$`
-)
-
 func initSteps(ctx StepAdder) {
 	// S3
 	ctx.Step(`^I put the following files into the corresponding s3 buckets:$`, IPutFilesIntoS3)
 	ctx.Step(`^there should be (\d+) files in the directory "([^"]*)" in bucket "([^"]*)$"`, ThereShouldBeFilesInDirectoryInBucket)
 	ctx.Step(`^the following files should exist in the corresponding s3 buckets:$`, TheFollowingFilesShouldExistInS3Buckets)
 	ctx.Step(`I delete the following files from the corresponding s3 buckets:$`, IDeleteFilesFromS3)
+
+	// SQS
+	ctx.Step(`^the SQS attributes:$`, TheSQSAttributes)
+	ctx.Step(`^I send an SQS message to queue "([^"]*)" using "([^"]*)"$`, ISendAnSQSMessageToQueueUsing)
+	ctx.Step(`^I send an SQS message to queue "([^"]*)":$`, ISendAnSQSMessageToQueueUsing)
 
 	// Mongo
 	ctx.Step("^I put the following documents in the corresponding collections and databases:$", IPutDocumentsInMongo)
@@ -75,7 +74,8 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^I drop the following mongo databases:$`, IDropMongoDatabase)
 
 	// General
-	ctx.Step(`^the headers:$`, TheHeaders)
+	ctx.Step(`^the headers:$`, TheHTTPHeaders)
+	ctx.Step(`^the HTTP headers:$`, TheHTTPHeaders)
 	ctx.Step(`^I store for templating:$`, IStoreForTemplating)
 	ctx.Step(`^I store from the response for templating:$`, IStoreFromTheResponseForTemplating)
 	ctx.Step(`^I am unauthenticated$`, IAmUnauthenticated)
@@ -92,9 +92,9 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^I set the query params:$`, ISetTheQueryParams)
 	ctx.Step(`^I add the query params:$`, IAddTheQueryParams)
 	ctx.Step(`^I ignore from all responses:$`, IIgnoreFromAllResponses)
-	ctx.Step(REISendARequestTo, ISendARequestTo)
-	ctx.Step(REISendARequestToWithJSON, ISendARequestToWithJSON)
-	ctx.Step(REISendARequestToWithJSONAsString, ISendARequestToWithJSONAsString)
+	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)"$`, ISendARequestTo)
+	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSON)
+	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON:$`, ISendARequestToWithJSONAsString)
 	ctx.Step(`^the HTTP response code should be (\d*)$`, TheHTTPResponseCodeShouldBe)
 	ctx.Step(`^the response should be (\w*)$`, TheResponseShouldBe)
 	ctx.Step(`^the response is (\w*)$`, TheResponseShouldBe)
@@ -406,9 +406,9 @@ func IDeleteFilesFromS3(ctx context.Context, table *godog.Table) error {
 			return fmt.Errorf("failed to list files in bucket '%s' with prefix '%s' to be deleted: %w", bucket, prefix, err)
 		}
 
-		objects := make([]types.ObjectIdentifier, len(list.Contents))
+		objects := make([]s3types.ObjectIdentifier, len(list.Contents))
 		for i, v := range list.Contents {
-			objects[i] = types.ObjectIdentifier{
+			objects[i] = s3types.ObjectIdentifier{
 				Key: v.Key,
 			}
 		}
@@ -419,7 +419,7 @@ func IDeleteFilesFromS3(ctx context.Context, table *godog.Table) error {
 
 		if _, err = t.S3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 			Bucket: aws.String(bucket),
-			Delete: &types.Delete{
+			Delete: &s3types.Delete{
 				Objects: objects,
 			},
 		}); err != nil {
@@ -468,7 +468,7 @@ func TheFollowingFilesShouldExistInS3Buckets(ctx context.Context, table *godog.T
 			Key:    aws.String(key),
 		}); err != nil {
 			var aerr *awshttp.ResponseError
-			if errors.As(err, &aerr) && aerr.ResponseError.HTTPStatusCode() == http.StatusNotFound {
+			if errors.As(err, &aerr) && aerr.HTTPStatusCode() == http.StatusNotFound {
 				return fmt.Errorf("file '%s/%s' does not exist: %w", bucket, key, err)
 			}
 			return fmt.Errorf("failed to check if file '%s/%s' exists: %w", bucket, key, err)
@@ -478,7 +478,69 @@ func TheFollowingFilesShouldExistInS3Buckets(ctx context.Context, table *godog.T
 	return nil
 }
 
-func TheHeaders(ctx context.Context, table *godog.Table) (context.Context, error) {
+func TheSQSAttributes(ctx context.Context, table *godog.Table) error {
+	t := bddcontext.LoadContext(ctx)
+	for _, row := range table.Rows[1:] {
+		var (
+			key, kErr = TemplateValue(row.Cells[0].Value).Render(ctx)
+			val, vErr = TemplateValue(row.Cells[1].Value).Render(ctx)
+			typ, tErr = TemplateValue(row.Cells[2].Value).Render(ctx)
+		)
+		if kErr != nil {
+			return fmt.Errorf("failed to render attribute key %q: %w", key, kErr)
+		}
+		if vErr != nil {
+			return fmt.Errorf("failed to render attribute value %q: %w", val, vErr)
+		}
+		if tErr != nil {
+			return fmt.Errorf("failed to render attribute type %q: %w", val, tErr)
+		}
+		t.SQS.MsgAttrs[key] = sqstypes.MessageAttributeValue{
+			StringValue: aws.String(val),
+			DataType:    aws.String(typ),
+		}
+	}
+
+	return nil
+}
+
+func ISendAnSQSMessageToQueueUsing(ctx context.Context, queue string, file string) error {
+	t := bddcontext.LoadContext(ctx)
+	f, err := t.SQS.TestData.Open(file)
+	if err != nil {
+		return fmt.Errorf("failed to open message %q: %w", file, err)
+	}
+
+	bb, err := io.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("failed to read msg %q: %w", file, err)
+	}
+
+	return ISendAnSQSMessageToQueue(ctx, queue, string(bb))
+}
+
+func ISendAnSQSMessageToQueue(ctx context.Context, queue string, msg string) error {
+	t := bddcontext.LoadContext(ctx)
+	resp, err := t.SQS.Client.GetQueueUrl(ctx, &sqs.GetQueueUrlInput{
+		QueueName: &queue,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get queue url for %q: %w", queue, err)
+	}
+
+	if _, err = t.SQS.Client.SendMessage(ctx, &sqs.SendMessageInput{
+		QueueUrl:          resp.QueueUrl,
+		MessageBody:       aws.String(msg),
+		MessageGroupId:    aws.String(t.ID),
+		MessageAttributes: t.SQS.MsgAttrs,
+	}); err != nil {
+		return fmt.Errorf("failed to fail: %w", err)
+	}
+
+	return nil
+}
+
+func TheHTTPHeaders(ctx context.Context, table *godog.Table) (context.Context, error) {
 	t := bddcontext.LoadContext(ctx)
 	for _, row := range table.Rows[1:] {
 		var (
@@ -683,9 +745,9 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, host, port, endp
 		return ctx, err
 	}
 	if host == "" {
-		host = viper.GetString("service.url")
+		host = "http://localhost" + port
 	} else {
-		host = "https://" + host
+		host = "http://" + host + port
 	}
 	url, err := url.Parse(host)
 	if err != nil {
@@ -732,7 +794,7 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, host, port, endp
 		return ctx, err
 	}
 
-	if err := t.HTTP.Requests.Push(bb); err != nil {
+	if err = t.HTTP.Requests.Push(bb); err != nil {
 		return ctx, fmt.Errorf("you've flown too close to the sun: %w", err)
 	}
 
@@ -745,7 +807,7 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, host, port, endp
 
 	defer resp.Body.Close()
 
-	if err := t.HTTP.ResponseCodes.Push(resp.StatusCode); err != nil {
+	if err = t.HTTP.ResponseCodes.Push(resp.StatusCode); err != nil {
 		return ctx, fmt.Errorf("you've flown too close to the sun: %w", err)
 	}
 
@@ -766,7 +828,7 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, host, port, endp
 	return ctx, nil
 }
 
-func ISendARequestToWithJSON(ctx context.Context, verb, host, _, endpoint, file string) (context.Context, error) {
+func ISendARequestToWithJSON(ctx context.Context, verb, host, port, endpoint, file string) (context.Context, error) {
 	t := bddcontext.LoadContext(ctx)
 	if file != "" {
 		file = file + ".json"
@@ -797,9 +859,9 @@ func ISendARequestToWithJSON(ctx context.Context, verb, host, _, endpoint, file 
 		return ctx, err
 	}
 	if host == "" {
-		host = viper.GetString("service.url")
+		host = "http://localhost" + port
 	} else {
-		host = "https://" + host
+		host = "http://" + host + port
 	}
 	url, err := url.Parse(host)
 	if err != nil {
@@ -815,7 +877,7 @@ func ISendARequestToWithJSON(ctx context.Context, verb, host, _, endpoint, file 
 		tmpl := template.Must(t.Template.ParseFS(t.HTTP.TestData, path.Join("requests", file)))
 
 		var buf bytes.Buffer
-		if err := tmpl.ExecuteTemplate(&buf, path.Base(file), t.TemplateValues); err != nil {
+		if err = tmpl.ExecuteTemplate(&buf, path.Base(file), t.TemplateValues); err != nil {
 			return nil, fmt.Errorf("failed to parse execute for file '%s': %w", file, err)
 		}
 
@@ -825,7 +887,7 @@ func ISendARequestToWithJSON(ctx context.Context, verb, host, _, endpoint, file 
 		return ctx, err
 	}
 
-	if err := t.HTTP.Requests.Push(bb); err != nil {
+	if err = t.HTTP.Requests.Push(bb); err != nil {
 		return ctx, fmt.Errorf("you've flown too close to the sun: %w", err)
 	}
 
@@ -856,7 +918,7 @@ func ISendARequestToWithJSON(ctx context.Context, verb, host, _, endpoint, file 
 
 	defer resp.Body.Close()
 
-	if err := t.HTTP.ResponseCodes.Push(resp.StatusCode); err != nil {
+	if err = t.HTTP.ResponseCodes.Push(resp.StatusCode); err != nil {
 		return ctx, fmt.Errorf("you've flown too close to the sun: %w", err)
 	}
 
@@ -994,6 +1056,8 @@ func compare(ctx context.Context, l, r []byte, scenarioIgnore []string, stepIgno
 		JSONValues: true,
 	})
 
+	fmt.Println(string(l))
+	fmt.Println(string(r))
 	return fmt.Errorf(report)
 }
 

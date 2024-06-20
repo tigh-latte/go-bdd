@@ -26,6 +26,7 @@ type User struct {
 type testSuiteOpts struct {
 	db    *dbOptions
 	s3    *clients.S3Options
+	sqs   *clients.SQSOptions
 	mongo *clients.MongoOptions
 	rmq   *rmqOptions
 	grpcs []grpcOptions
@@ -37,6 +38,7 @@ type testSuiteOpts struct {
 	testDataDir   *data.DataDir
 	rabbitDataDir *data.DataDir
 	httpDataDir   *data.DataDir
+	sqsDataDir    fs.FS
 	mongoDataDir  *data.DataDir
 	wsDataDir     *data.DataDir
 
@@ -106,6 +108,34 @@ func WithS3(host, key, secret string) TestSuiteOptionFunc {
 			Host:   host,
 			Key:    key,
 			Secret: secret,
+		}
+	}
+}
+
+func WithSQS(host, key, secret string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.sqs = &clients.SQSOptions{
+			Host:   host,
+			Key:    key,
+			Secret: secret,
+		}
+	}
+}
+
+// WithSQSTestData takes an `fs.FS` of which to retrieve sqs message bodies from.
+// This function assumes the data will be in a directory titled `sqs`.
+//
+// Usage example (using `embed.FS`):
+//
+//	//go:embed sqs/*
+//	var sqsData embed.FS
+//	. . .
+//	cucumber.NewSuite("test", cucumber.WithSQSTestData(sqsData))
+func WithSQSTestData(fsys fs.FS) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.sqsDataDir = &data.DataDir{
+			FS:     fsys,
+			Prefix: "sqs",
 		}
 	}
 }

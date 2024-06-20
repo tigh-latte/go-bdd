@@ -13,6 +13,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/sprig/v3"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
 	"github.com/google/uuid"
@@ -104,6 +106,9 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 			if err := clients.InitMongo(opts.mongo); err != nil {
 				panic(err)
 			}
+			if err := clients.InitSQS(opts.sqs); err != nil {
+				panic(err)
+			}
 		})
 
 		ctx.BeforeSuite(func() {
@@ -156,6 +161,11 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				TestData:      opts.mongoDataDir,
 				Client:        clients.MongoClient,
 			},
+			SQS: &bddcontext.SQSContext{
+				MsgAttrs: make(map[string]sqstypes.MessageAttributeValue),
+				TestData: opts.sqsDataDir,
+				Client:   clients.SQSClient,
+			},
 			HTTP: &bddcontext.HTTPContext{
 				Headers:       make(http.Header, 0),
 				Cookies:       make([]*http.Cookie, len(opts.cookies)),
@@ -173,7 +183,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			IgnoreAlways: make([]string, len(opts.alwaysIgnore)),
 		}
 		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
-			now := time.Now()
+			now := time.Now().UTC()
 
 			today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 			yesterday := time.Date(now.Year(), now.Month(), now.Day()-1, 0, 0, 0, 0, now.Location())
@@ -182,7 +192,8 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			sd.ID = sn.Id
 			sd.Time = now
 			sd.TemplateValues["__scenario_id"] = sn.Id
-			sd.TemplateValues["__unix_time"] = sd.Time.UnixMilli()
+			sd.TemplateValues["__time_unix"] = sd.Time.Unix()
+			sd.TemplateValues["__time_unix_milli"] = sd.Time.UnixMilli()
 			sd.TemplateValues["__now"] = now.String()
 			sd.TemplateValues["__today"] = today.Local().Format("2006-01-02")
 			sd.TemplateValues["__today_timestamp"] = today.Local().String()
@@ -191,7 +202,9 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			sd.TemplateValues["__tomorrow"] = tomorrow.Local().Format("2006-01-02")
 			sd.TemplateValues["__tomorrow_timestamp"] = tomorrow.Local().String()
 
+			sd.Template.Funcs(sprig.TxtFuncMap())
 			sd.Template.Funcs(template.FuncMap{
+				"test_start": func() time.Time { return now },
 				"date_add": func(year, month, days int) string {
 					return today.AddDate(year, month, days).Format("2006-01-02")
 				},
@@ -199,6 +212,11 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 					left := toInt(l)
 					right := toInt(r)
 					return left + right
+				},
+				"sub": func(l, r any) int {
+					left := toInt(l)
+					right := toInt(r)
+					return left - right
 				},
 				"assert_future":      assertFuture,
 				"assert_json_string": assertJsonString,
@@ -217,8 +235,14 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				"random_last_name":  fake.LastName,
 				"random_email":      fake.Email,
 				"random_sentence":   fake.Sentence,
-				"upper":             strings.ToUpper,
-				"lower":             strings.ToLower,
+				"random_string": func(l int) string {
+					const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789"
+					var b strings.Builder
+					b.Grow(l)
+					return b.String()
+				},
+				"upper": strings.ToUpper,
+				"lower": strings.ToLower,
 				"uuid": func() string {
 					return uuid.New().String()
 				},
@@ -294,7 +318,6 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				return ctx, nil
 			}
 
-			fmt.Println(sd)
 			fmt.Printf("fake.Seed=%s\n", fake.GetInfo())
 
 			return ctx, nil
@@ -309,7 +332,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			return ctx, nil
 		})
 
-		adder := &stepAdder{ctx: ctx}
+		adder := &stepAdder{StepAdder: ctx}
 		initSteps(adder)
 
 		for _, fn := range opts.customStepFunc {

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/makiuchi-d/gozxing"
 	"github.com/tigh-latte/go-bdd/internal/websocket"
 	"github.com/zeroflucs-given/generics/collections/stack"
@@ -38,6 +40,8 @@ type Context struct {
 	TestData fs.FS
 
 	HTTP *HTTPContext
+
+	SQS *SQSContext
 
 	S3Client interface {
 		s3.ListObjectsV2APIClient
@@ -70,6 +74,17 @@ type HTTPContext struct {
 	TestData fs.FS
 
 	Client *http.Client
+}
+
+type SQSContext struct {
+	MsgAttrs map[string]sqstypes.MessageAttributeValue
+
+	Client interface {
+		GetQueueUrl(ctx context.Context, params *sqs.GetQueueUrlInput, optFns ...func(*sqs.Options)) (*sqs.GetQueueUrlOutput, error)
+		SendMessage(ctx context.Context, params *sqs.SendMessageInput, optFns ...func(*sqs.Options)) (*sqs.SendMessageOutput, error)
+	}
+
+	TestData fs.FS
 }
 
 type MongoContext struct {
