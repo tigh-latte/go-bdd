@@ -18,6 +18,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
@@ -72,6 +74,9 @@ func initSteps(ctx StepAdder) {
 	ctx.Step(`^the following documents should match the following files:$`, TheFollowingDocumentsShouldMatchTheFollowingFiles)
 	ctx.Step(`^the database document should match the following values:$`, TheDocumentShouldMatchTheFollowingValues)
 	ctx.Step(`^I drop the following mongo databases:$`, IDropMongoDatabase)
+
+	// DynammoDB
+	ctx.Step(`^the following records should exist in the corresponding dynamodb tables:$`, TheFollowingRecordsShouldExistInTheCorrespondingDynamoDBTables)
 
 	// General
 	ctx.Step(`^the headers:$`, TheHTTPHeaders)
@@ -366,6 +371,45 @@ func IDropMongoDatabase(ctx context.Context, table *godog.Table) error {
 	return nil
 }
 
+func TheFollowingRecordsShouldExistInTheCorrespondingDynamoDBTables(ctx context.Context, table *godog.Table) error {
+	t := bddcontext.LoadContext(ctx)
+	t.DynamoDB.Client.GetItem(ctx, &dynamodb.GetItemInput{})
+	for _, row := range table.Rows[1:] {
+		table, err := TemplateValue(row.Cells[0].Value).Render(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to render table %q: %w", row.Cells[0].Value, err)
+		}
+		key, err := TemplateValue(row.Cells[1].Value).Render(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to render key %q: %w", row.Cells[1].Value, err)
+		}
+		val, err := TemplateValue(row.Cells[2].Value).Render(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to render val %q: %w", row.Cells[2].Value, err)
+		}
+
+		var (
+			kc = expression.Key(key).Equal(expression.Value(val))
+			eb = expression.NewBuilder().WithKeyCondition(kc)
+		)
+
+		expr, err := eb.Build()
+		if err != nil {
+			return fmt.Errorf("failed to build expression: %w", err)
+		}
+
+		if _, err = t.DynamoDB.Client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 &table,
+			KeyConditionExpression:    expr.KeyCondition(),
+			ExpressionAttributeValues: expr.Values(),
+			ExpressionAttributeNames:  expr.Names(),
+		}); err != nil {
+			return fmt.Errorf("failed to find record %q in table %q: %w", val, table, err)
+		}
+	}
+	return nil
+}
+
 func IPutFilesIntoS3(ctx context.Context, table *godog.Table) error {
 	t := bddcontext.LoadContext(ctx)
 	for _, row := range table.Rows[1:] {
@@ -528,13 +572,18 @@ func ISendAnSQSMessageToQueue(ctx context.Context, queue string, msg string) err
 		return fmt.Errorf("failed to get queue url for %q: %w", queue, err)
 	}
 
-	if _, err = t.SQS.Client.SendMessage(ctx, &sqs.SendMessageInput{
+	sendResp, err := t.SQS.Client.SendMessage(ctx, &sqs.SendMessageInput{
 		QueueUrl:          resp.QueueUrl,
 		MessageBody:       aws.String(msg),
 		MessageGroupId:    aws.String(t.ID),
 		MessageAttributes: t.SQS.MsgAttrs,
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("failed to fail: %w", err)
+	}
+
+	if err := t.SQS.MessageIDs.Push(*sendResp.MessageId); err != nil {
+		return fmt.Errorf("failed to push msg: %w", err)
 	}
 
 	return nil

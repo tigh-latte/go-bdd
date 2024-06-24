@@ -47,3 +47,11 @@ func (t TemplateValue) Render(ctx context.Context) (string, error) {
 
 	return buf.String(), nil
 }
+
+func (t TemplateValue) MustRender(ctx context.Context) string {
+	r, err := t.Render(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}

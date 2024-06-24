@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -68,8 +69,9 @@ func NewSuite(name string, oo ...TestSuiteOptionFunc) *Suite {
 		customTemplateFuncs:   make(template.FuncMap),
 		customViperConfigFunc: func(v *viper.Viper) {},
 
-		cookies:      make([]*http.Cookie, 0),
-		alwaysIgnore: make([]string, 0),
+		cookies:           make([]*http.Cookie, 0),
+		alwaysIgnore:      make([]string, 0),
+		globalHTTPHeaders: make(map[string][]string, 0),
 	}
 	for _, o := range oo {
 		o(opts)
@@ -107,6 +109,9 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 				panic(err)
 			}
 			if err := clients.InitSQS(opts.sqs); err != nil {
+				panic(err)
+			}
+			if err := clients.InitDynamoDB(opts.dynamodb); err != nil {
 				panic(err)
 			}
 		})
@@ -162,9 +167,14 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				Client:        clients.MongoClient,
 			},
 			SQS: &bddcontext.SQSContext{
-				MsgAttrs: make(map[string]sqstypes.MessageAttributeValue),
-				TestData: opts.sqsDataDir,
-				Client:   clients.SQSClient,
+				MsgAttrs:   make(map[string]sqstypes.MessageAttributeValue),
+				MessageIDs: stack.NewStack[string](20),
+				TestData:   opts.sqsDataDir,
+				Client:     clients.SQSClient,
+			},
+			DynamoDB: &bddcontext.DynamoDBContext{
+				Client:   clients.DynamoDBClient,
+				TestData: opts.dynamoDataDir,
 			},
 			HTTP: &bddcontext.HTTPContext{
 				Headers:       make(http.Header, 0),
@@ -176,6 +186,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				QueryParams:   make(url.Values),
 				ToIgnore:      make([]string, 0),
 				Client:        &http.Client{Timeout: 30 * time.Second, Transport: transport},
+				GlobalHeaders: make(map[string][]string, len(opts.globalHTTPHeaders)),
 			},
 			TestData: opts.testDataDir,
 			Template: template.New("template"),
@@ -183,18 +194,18 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			IgnoreAlways: make([]string, len(opts.alwaysIgnore)),
 		}
 		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
-			now := time.Now().UTC()
+			scenarioStart := time.Now().UTC()
 
-			today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-			yesterday := time.Date(now.Year(), now.Month(), now.Day()-1, 0, 0, 0, 0, now.Location())
-			tomorrow := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+			today := time.Date(scenarioStart.Year(), scenarioStart.Month(), scenarioStart.Day(), 0, 0, 0, 0, scenarioStart.Location())
+			yesterday := time.Date(scenarioStart.Year(), scenarioStart.Month(), scenarioStart.Day()-1, 0, 0, 0, 0, scenarioStart.Location())
+			tomorrow := time.Date(scenarioStart.Year(), scenarioStart.Month(), scenarioStart.Day()+1, 0, 0, 0, 0, scenarioStart.Location())
 
 			sd.ID = sn.Id
-			sd.Time = now
+			sd.ScenarioStart = scenarioStart
 			sd.TemplateValues["__scenario_id"] = sn.Id
-			sd.TemplateValues["__time_unix"] = sd.Time.Unix()
-			sd.TemplateValues["__time_unix_milli"] = sd.Time.UnixMilli()
-			sd.TemplateValues["__now"] = now.String()
+			sd.TemplateValues["__time_unix"] = sd.ScenarioStart.Unix()
+			sd.TemplateValues["__time_unix_milli"] = sd.ScenarioStart.UnixMilli()
+			sd.TemplateValues["__now"] = scenarioStart.String()
 			sd.TemplateValues["__today"] = today.Local().Format("2006-01-02")
 			sd.TemplateValues["__today_timestamp"] = today.Local().String()
 			sd.TemplateValues["__yesterday"] = yesterday.Local().Format("2006-01-02")
@@ -204,10 +215,8 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 
 			sd.Template.Funcs(sprig.TxtFuncMap())
 			sd.Template.Funcs(template.FuncMap{
-				"test_start": func() time.Time { return now },
-				"date_add": func(year, month, days int) string {
-					return today.AddDate(year, month, days).Format("2006-01-02")
-				},
+				"scenarioStart": func() time.Time { return sd.ScenarioStart },
+				"stepStart":     func() time.Time { return sd.StepStart },
 				"add": func(l, r any) int {
 					left := toInt(l)
 					right := toInt(r)
@@ -218,24 +227,24 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 					right := toInt(r)
 					return left - right
 				},
-				"assert_future":      assertFuture,
-				"assert_json_string": assertJsonString,
-				"assert_not_empty":   assertNotEmpty,
-				"to_int":             toInt,
-				"match":              match,
-				"url_encode":         urlEncode,
-				"to_string":          toString,
-				"to_json_string":     toJsonString,
+				"assertFuture":     assertFuture,
+				"assertJsonString": assertJsonString,
+				"assertNotEmpty":   assertNotEmpty,
+				"toInt":            toInt,
+				"match":            match,
+				"urlEncode":        urlEncode,
+				"toString":         toString,
+				"toJsonString":     toJsonString,
 				"viper": func(key string) string {
 					return viper.GetString(key)
 				},
-				"to_hostname":       toHostname,
-				"random_name":       fake.Name,
-				"random_first_name": fake.FirstName,
-				"random_last_name":  fake.LastName,
-				"random_email":      fake.Email,
-				"random_sentence":   fake.Sentence,
-				"random_string": func(l int) string {
+				"toHostname":      toHostname,
+				"randomName":      fake.Name,
+				"randomFirstName": fake.FirstName,
+				"randomLastName":  fake.LastName,
+				"randomEmail":     fake.Email,
+				"randomSentence":  fake.Sentence,
+				"randomString": func(l int) string {
 					const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789"
 					var b strings.Builder
 					b.Grow(l)
@@ -267,11 +276,26 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 					Client:   opts.ws.Client,
 				}
 			}
-			copy(sd.HTTP.Cookies, opts.cookies)
-			copy(sd.IgnoreAlways, opts.alwaysIgnore)
 
 			return bddcontext.WithContext(ctx, sd), nil
 		})
+
+		// copy gobal data into scenario context.
+		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
+			copy(sd.HTTP.Cookies, opts.cookies)
+			copy(sd.IgnoreAlways, opts.alwaysIgnore)
+			hdrs := maps.Clone(opts.globalHTTPHeaders)
+			for k, v := range hdrs {
+				if len(v) == 0 {
+					panic("not value provided for header " + k)
+				}
+				k = TemplateValue(k).MustRender(ctx)
+				v[0] = TemplateValue(v[0]).MustRender(ctx)
+				sd.HTTP.Headers.Set(k, v[0])
+			}
+			return ctx, nil
+		})
+
 		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
 			var err error
 			for _, tag := range sn.Tags {
@@ -287,7 +311,6 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 					return ctx, err
 				}
 			}
-
 			return ctx, nil
 		})
 		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
@@ -296,6 +319,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 
 		ctx.StepContext().Before(func(ctx context.Context, st *godog.Step) (context.Context, error) {
 			// Whatever we want to do can be added here.
+			sd.StepStart = time.Now().UTC()
 			return ctx, nil
 		})
 		ctx.StepContext().Before(func(ctx context.Context, st *godog.Step) (context.Context, error) {

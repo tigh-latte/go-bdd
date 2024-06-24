@@ -24,13 +24,14 @@ type User struct {
 }
 
 type testSuiteOpts struct {
-	db    *dbOptions
-	s3    *clients.S3Options
-	sqs   *clients.SQSOptions
-	mongo *clients.MongoOptions
-	rmq   *rmqOptions
-	grpcs []grpcOptions
-	ws    *wsOptions
+	db       *dbOptions
+	s3       *clients.S3Options
+	sqs      *clients.SQSOptions
+	dynamodb *clients.DynamoDBOptions
+	mongo    *clients.MongoOptions
+	rmq      *rmqOptions
+	grpcs    []grpcOptions
+	ws       *wsOptions
 
 	concurrency int
 
@@ -39,11 +40,14 @@ type testSuiteOpts struct {
 	rabbitDataDir *data.DataDir
 	httpDataDir   *data.DataDir
 	sqsDataDir    fs.FS
+	dynamoDataDir fs.FS
 	mongoDataDir  *data.DataDir
 	wsDataDir     *data.DataDir
 
 	cookies      []*http.Cookie
 	alwaysIgnore []string
+
+	globalHTTPHeaders map[string][]string
 
 	customBeforeSuiteFunc TestSuiteHookFunc
 	customAfterSuiteFunc  TestSuiteHookFunc
@@ -136,6 +140,34 @@ func WithSQSTestData(fsys fs.FS) TestSuiteOptionFunc {
 		t.sqsDataDir = &data.DataDir{
 			FS:     fsys,
 			Prefix: "sqs",
+		}
+	}
+}
+
+func WithDynamoDB(host, key, secret string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.dynamodb = &clients.DynamoDBOptions{
+			Host:   host,
+			Key:    key,
+			Secret: secret,
+		}
+	}
+}
+
+// WithDynamoDBTestData takes an `fs.FS` of which to retrieve sqs message bodies from.
+// This function assumes the data will be in a directory titled `sqs`.
+//
+// Usage example (using `embed.FS`):
+//
+//	//go:embed sqs/*
+//	var sqsData embed.FS
+//	. . .
+//	cucumber.NewSuite("test", cucumber.WithSQSTestData(sqsData))
+func WithDynamoDBTestData(fsys fs.FS) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.dynamoDataDir = &data.DataDir{
+			FS:     fsys,
+			Prefix: "dynamodb",
 		}
 	}
 }
@@ -355,6 +387,23 @@ func WithHTTPData(fsys fs.FS) TestSuiteOptionFunc {
 		t.httpDataDir = &data.DataDir{
 			FS:     fsys,
 			Prefix: "http",
+		}
+	}
+}
+
+// WithGlobalHTTPHeaders specific a list of keys via jsonpath to be
+// ignored from every http response.
+// Typically used for data that is completely non-deterministic data.
+//
+// Usage example:
+//
+//	cucumber.NewSuite("test", cucumber.WithGlobalHTTPHeaders(map[string]string{
+//		"correlation-id": "{{ .__scenario_id }}",
+//	})
+func WithGlobalHTTPHeaders(headers map[string]string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		for k, v := range headers {
+			t.globalHTTPHeaders[k] = []string{v}
 		}
 	}
 }

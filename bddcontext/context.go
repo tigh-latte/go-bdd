@@ -9,6 +9,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
@@ -33,7 +34,8 @@ type Context struct {
 	ID string
 
 	TestID         string
-	Time           time.Time
+	ScenarioStart  time.Time
+	StepStart      time.Time
 	TemplateValues map[string]any
 	Template       *template.Template
 
@@ -42,6 +44,8 @@ type Context struct {
 	HTTP *HTTPContext
 
 	SQS *SQSContext
+
+	DynamoDB *DynamoDBContext
 
 	S3Client interface {
 		s3.ListObjectsV2APIClient
@@ -61,11 +65,12 @@ type Context struct {
 }
 
 type HTTPContext struct {
-	Endpoint    string
-	Headers     http.Header
-	Cookies     []*http.Cookie
-	QueryParams url.Values
-	ToIgnore    []string
+	Endpoint      string
+	GlobalHeaders map[string][]string
+	Headers       http.Header
+	Cookies       []*http.Cookie
+	QueryParams   url.Values
+	ToIgnore      []string
 
 	Requests      *stack.Stack[json.RawMessage]
 	Responses     *stack.Stack[json.RawMessage]
@@ -79,11 +84,18 @@ type HTTPContext struct {
 type SQSContext struct {
 	MsgAttrs map[string]sqstypes.MessageAttributeValue
 
+	MessageIDs *stack.Stack[string]
+
 	Client interface {
 		GetQueueUrl(ctx context.Context, params *sqs.GetQueueUrlInput, optFns ...func(*sqs.Options)) (*sqs.GetQueueUrlOutput, error)
 		SendMessage(ctx context.Context, params *sqs.SendMessageInput, optFns ...func(*sqs.Options)) (*sqs.SendMessageOutput, error)
 	}
 
+	TestData fs.FS
+}
+
+type DynamoDBContext struct {
+	Client   *dynamodb.Client
 	TestData fs.FS
 }
 
