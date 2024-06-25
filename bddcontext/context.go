@@ -47,13 +47,7 @@ type Context struct {
 
 	DynamoDB *DynamoDBContext
 
-	S3Client interface {
-		s3.ListObjectsV2APIClient
-		s3.HeadObjectAPIClient
-
-		PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
-		DeleteObjects(context.Context, *s3.DeleteObjectsInput, ...func(*s3.Options)) (*s3.DeleteObjectsOutput, error)
-	}
+	S3 *S3Context
 
 	QRCodes *stack.Stack[*gozxing.Result]
 
@@ -62,6 +56,10 @@ type Context struct {
 	MongoContext *MongoContext
 
 	IgnoreAlways []string
+}
+
+type S3Context struct {
+	Client *s3.Client
 }
 
 type HTTPContext struct {

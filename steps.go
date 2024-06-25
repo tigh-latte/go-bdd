@@ -423,7 +423,7 @@ func IPutFilesIntoS3(ctx context.Context, table *godog.Table) error {
 		if err != nil {
 			return fmt.Errorf("failed to load file '%s': %w", file, err)
 		}
-		if _, err = t.S3Client.PutObject(ctx, &s3.PutObjectInput{
+		if _, err = t.S3.Client.PutObject(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(bucket),
 			Body:   r,
 			Key:    aws.String(key),
@@ -442,7 +442,7 @@ func IDeleteFilesFromS3(ctx context.Context, table *godog.Table) error {
 			prefix = row.Cells[1].Value
 		)
 
-		list, err := t.S3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		list, err := t.S3.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 			Bucket: aws.String(bucket),
 			Prefix: aws.String(prefix),
 		})
@@ -461,7 +461,7 @@ func IDeleteFilesFromS3(ctx context.Context, table *godog.Table) error {
 			return nil
 		}
 
-		if _, err = t.S3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+		if _, err = t.S3.Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 			Bucket: aws.String(bucket),
 			Delete: &s3types.Delete{
 				Objects: objects,
@@ -475,7 +475,7 @@ func IDeleteFilesFromS3(ctx context.Context, table *godog.Table) error {
 
 func ThereShouldBeFilesInDirectoryInBucket(ctx context.Context, exp int32, key, bucket string) error {
 	t := bddcontext.LoadContext(ctx)
-	p := s3.NewListObjectsV2Paginator(t.S3Client, &s3.ListObjectsV2Input{
+	p := s3.NewListObjectsV2Paginator(t.S3.Client, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(key),
 	})
@@ -507,7 +507,7 @@ func TheFollowingFilesShouldExistInS3Buckets(ctx context.Context, table *godog.T
 			key    = row.Cells[1].Value
 		)
 
-		if _, err := t.S3Client.HeadObject(ctx, &s3.HeadObjectInput{
+		if _, err := t.S3.Client.HeadObject(ctx, &s3.HeadObjectInput{
 			Bucket: aws.String(bucket),
 			Key:    aws.String(key),
 		}); err != nil {

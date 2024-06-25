@@ -63,6 +63,8 @@ type testSuiteOpts struct {
 	customTemplateFuncs template.FuncMap
 
 	customViperConfigFunc ViperConfigFunc
+
+	dockerComposePaths []string
 }
 
 func (o *testSuiteOpts) applyConfig() {
@@ -482,5 +484,12 @@ func WithCustomTemplateFuncs(fns template.FuncMap) TestSuiteOptionFunc {
 func WithViperConfigFunc(fn ViperConfigFunc) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
 		t.customViperConfigFunc = fn
+	}
+}
+
+// WithDockerCompose
+func WithDockerCompose(paths ...string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.dockerComposePaths = paths
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/makiuchi-d/gozxing"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/testcontainers/testcontainers-go/modules/compose"
 	"github.com/tigh-latte/go-bdd/bddcontext"
 	"github.com/tigh-latte/go-bdd/clients"
 	"github.com/tigh-latte/go-bdd/config"
@@ -97,21 +99,44 @@ func (s *Suite) Run() int {
 
 func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext) {
 	return func(ctx *godog.TestSuiteContext) {
+		// Init config
 		ctx.BeforeSuite(func() {
 			config.Init()
 			opts.customViperConfigFunc(viper.GetViper())
 			opts.applyConfig()
+		})
 
-			if err := clients.InitS3(opts.s3); err != nil {
+		var (
+			comp compose.ComposeStack
+			err  error
+		)
+		ctx.BeforeSuite(func() {
+			if len(opts.dockerComposePaths) == 0 {
+				return
+			}
+			comp, err = compose.NewDockerComposeWith(
+				compose.WithStackFiles(opts.dockerComposePaths...),
+				compose.StackIdentifier(strconv.FormatInt(time.Now().Unix(), 10)),
+			)
+			if err != nil {
 				panic(err)
 			}
-			if err := clients.InitMongo(opts.mongo); err != nil {
+			if err = comp.Up(context.TODO()); err != nil {
 				panic(err)
 			}
-			if err := clients.InitSQS(opts.sqs); err != nil {
+		})
+
+		ctx.BeforeSuite(func() {
+			if err = clients.InitS3(opts.s3); err != nil {
 				panic(err)
 			}
-			if err := clients.InitDynamoDB(opts.dynamodb); err != nil {
+			if err = clients.InitMongo(opts.mongo); err != nil {
+				panic(err)
+			}
+			if err = clients.InitSQS(opts.sqs); err != nil {
+				panic(err)
+			}
+			if err = clients.InitDynamoDB(opts.dynamodb); err != nil {
 				panic(err)
 			}
 		})
@@ -134,19 +159,24 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 		})
 
 		ctx.BeforeSuite(func() {
-			if err := opts.customBeforeSuiteFunc(); err != nil {
+			if err = opts.customBeforeSuiteFunc(); err != nil {
 				panic(fmt.Errorf("failed before suite hook: %w", err))
 			}
 		})
 
 		ctx.AfterSuite(func() {
-			if err := opts.customAfterSuiteFunc(); err != nil {
+			if err = opts.customAfterSuiteFunc(); err != nil {
 				panic(fmt.Errorf("failed after suite hook: %w", err))
 			}
 		})
 
 		ctx.AfterSuite(func() {
-			// shut down services here
+			if comp == nil {
+				return
+			}
+			if err = comp.Down(context.TODO()); err != nil {
+				panic(err)
+			}
 		})
 	}
 }
@@ -157,7 +187,6 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 	return func(ctx *godog.ScenarioContext) {
 		sd := &bddcontext.Context{
 			TemplateValues: make(map[string]any),
-			S3Client:       clients.S3Client,
 			QRCodes:        stack.NewStack[*gozxing.Result](20),
 			MongoContext: &bddcontext.MongoContext{
 				IDs:           stack.NewStack[primitive.ObjectID](20),
@@ -259,10 +288,9 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			sd.Template.Funcs(opts.customTemplateFuncs)
 
 			if opts.s3 != nil {
-				// init context
-			}
-			if opts.rmq != nil {
-				// for rabbitmq
+				sd.S3 = &bddcontext.S3Context{
+					Client: clients.S3Client,
+				}
 			}
 			if opts.ws != nil {
 				sd.WS = &bddcontext.WebsocketContext{
