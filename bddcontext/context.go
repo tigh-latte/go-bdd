@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/makiuchi-d/gozxing"
+	"github.com/testcontainers/testcontainers-go/modules/compose"
 	"github.com/tigh-latte/go-bdd/internal/websocket"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -49,6 +50,8 @@ type Context struct {
 
 	S3 *S3Context
 
+	Compose *ComposeContext
+
 	QRCodes *stack.Stack[*gozxing.Result]
 
 	WS *WebsocketContext
@@ -56,6 +59,10 @@ type Context struct {
 	MongoContext *MongoContext
 
 	IgnoreAlways []string
+}
+
+type ComposeContext struct {
+	Stack compose.ComposeStack
 }
 
 type S3Context struct {

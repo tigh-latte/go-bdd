@@ -124,6 +124,7 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 			if err = comp.Up(context.TODO()); err != nil {
 				panic(err)
 			}
+			clients.ComposeStack = comp
 		})
 
 		ctx.BeforeSuite(func() {
@@ -148,14 +149,6 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 				}
 				s.reqFns[k] = v
 			}
-		})
-
-		ctx.BeforeSuite(func() {
-			if config.IsDryRun() {
-				return
-			}
-
-			// perform rabbitmq connection check here
 		})
 
 		ctx.BeforeSuite(func() {
@@ -195,6 +188,9 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				TestData:      opts.mongoDataDir,
 				Client:        clients.MongoClient,
 			},
+			Compose: &bddcontext.ComposeContext{
+				Stack: clients.ComposeStack,
+			},
 			SQS: &bddcontext.SQSContext{
 				MsgAttrs:   make(map[string]sqstypes.MessageAttributeValue),
 				MessageIDs: stack.NewStack[string](20),
@@ -217,19 +213,36 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				Client:        &http.Client{Timeout: 30 * time.Second, Transport: transport},
 				GlobalHeaders: make(map[string][]string, len(opts.globalHTTPHeaders)),
 			},
-			TestData: opts.testDataDir,
-			Template: template.New("template"),
-
+			TestData:     opts.testDataDir,
 			IgnoreAlways: make([]string, len(opts.alwaysIgnore)),
 		}
+
 		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
+			sd.ID = sn.Id
+			sd.Template = template.New(sd.ID)
 			scenarioStart := time.Now().UTC()
 
-			today := time.Date(scenarioStart.Year(), scenarioStart.Month(), scenarioStart.Day(), 0, 0, 0, 0, scenarioStart.Location())
-			yesterday := time.Date(scenarioStart.Year(), scenarioStart.Month(), scenarioStart.Day()-1, 0, 0, 0, 0, scenarioStart.Location())
-			tomorrow := time.Date(scenarioStart.Year(), scenarioStart.Month(), scenarioStart.Day()+1, 0, 0, 0, 0, scenarioStart.Location())
+			today := time.Date(
+				scenarioStart.Year(),
+				scenarioStart.Month(),
+				scenarioStart.Day(),
+				0, 0, 0, 0,
+				scenarioStart.Location(),
+			)
+			yesterday := time.Date(
+				scenarioStart.Year(),
+				scenarioStart.Month(),
+				scenarioStart.Day()-1,
+				0, 0, 0, 0,
+				scenarioStart.Location(),
+			)
+			tomorrow := time.Date(scenarioStart.Year(),
+				scenarioStart.Month(),
+				scenarioStart.Day()+1,
+				0, 0, 0, 0,
+				scenarioStart.Location(),
+			)
 
-			sd.ID = sn.Id
 			sd.ScenarioStart = scenarioStart
 			sd.TemplateValues["__scenario_id"] = sn.Id
 			sd.TemplateValues["__time_unix"] = sd.ScenarioStart.Unix()
@@ -372,7 +385,8 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 
 			fmt.Printf("fake.Seed=%s\n", fake.GetInfo())
 
-			return ctx, nil
+			b := bddcontext.LoadContext(ctx)
+			return ctx, b.Compose.Stack.Down(ctx)
 		})
 		ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 			if opts.ws != nil {
@@ -384,11 +398,10 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			return ctx, nil
 		})
 
-		adder := &stepAdder{StepAdder: ctx}
-		initSteps(adder)
+		initSteps(ctx)
 
 		for _, fn := range opts.customStepFunc {
-			fn(adder)
+			fn(ctx)
 		}
 	}
 }

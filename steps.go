@@ -32,28 +32,12 @@ import (
 	"github.com/srwiley/oksvg"
 	"github.com/srwiley/rasterx"
 	"github.com/tigh-latte/go-bdd/bddcontext"
-	"github.com/tigh-latte/go-bdd/config"
 	"github.com/xlzd/gotp"
 	"github.com/zeroflucs-given/generics/collections/stack"
 	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/yazgazan/jaydiff/diff"
 )
-
-type stepAdder struct {
-	StepAdder
-}
-
-func (sa *stepAdder) Step(expr, stepFunc any) {
-	sa.StepAdder.Step(expr, func() any {
-		if config.IsDryRun() {
-			return func() error {
-				return godog.ErrSkip
-			}
-		}
-		return stepFunc
-	}())
-}
 
 func initSteps(ctx StepAdder) {
 	// S3

@@ -13,10 +13,6 @@ func Init() {
 	viper.BindPFlags(pflag.CommandLine)
 }
 
-func IsDryRun() bool {
-	return false
-}
-
 func Cookies() []string {
 	return []string{}
 }
