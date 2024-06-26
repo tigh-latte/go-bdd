@@ -39,7 +39,7 @@ import (
 	"github.com/yazgazan/jaydiff/diff"
 )
 
-func initSteps(ctx StepAdder) {
+func InitSteps(ctx StepAdder) {
 	// S3
 	ctx.Step(`^I put the following files into the corresponding s3 buckets:$`, IPutFilesIntoS3)
 	ctx.Step(`^there should be (\d+) files in the directory "([^"]*)" in bucket "([^"]*)$"`, ThereShouldBeFilesInDirectoryInBucket)

@@ -2,6 +2,7 @@ package bdd_test
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"net/http"
 	"regexp"
@@ -11,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/cucumber/godog"
 	messages "github.com/cucumber/messages/go/v21"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/tigh-latte/go-bdd"
 	"github.com/tigh-latte/go-bdd/bddcontext"
@@ -19,8 +19,21 @@ import (
 	"github.com/tigh-latte/go-bdd/mocks"
 )
 
+type adder struct {
+	steps []*regexp.Regexp
+}
+
+func (a *adder) Step(e any, _ any) {
+	expr := e.(string)
+	a.steps = append(a.steps, regexp.MustCompile(expr))
+}
+
+func (a *adder) Given(e any, _ any) {
+	expr := e.(string)
+	a.steps = append(a.steps, regexp.MustCompile(expr))
+}
+
 func TestISendARequestToRegex(t *testing.T) {
-	matcher := regexp.MustCompile(bdd.REISendARequestTo)
 	tests := map[string]struct {
 		sentence string
 
@@ -59,7 +72,18 @@ func TestISendARequestToRegex(t *testing.T) {
 		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			matches := matcher.FindAllStringSubmatch(test.sentence, -1)
+			adder := &adder{
+				steps: make([]*regexp.Regexp, 0),
+			}
+			bdd.InitSteps(adder)
+
+			var matches [][]string
+			for _, step := range adder.steps {
+				matches = step.FindAllStringSubmatch(test.sentence, -1)
+				if len(matches) > 0 {
+					break
+				}
+			}
 			if len(matches) == 0 {
 				t.Fatalf("no matches: %q", test.sentence)
 			}
@@ -90,7 +114,6 @@ func TestISendARequestToRegex(t *testing.T) {
 }
 
 func TestISendARequestToWithJSONAsStringRegex(t *testing.T) {
-	matcher := regexp.MustCompile(bdd.REISendARequestToWithJSONAsString)
 	tests := map[string]struct {
 		sentence string
 
@@ -129,7 +152,18 @@ func TestISendARequestToWithJSONAsStringRegex(t *testing.T) {
 		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			matches := matcher.FindAllStringSubmatch(test.sentence, -1)
+			adder := &adder{
+				steps: make([]*regexp.Regexp, 0),
+			}
+			bdd.InitSteps(adder)
+
+			var matches [][]string
+			for _, step := range adder.steps {
+				matches = step.FindAllStringSubmatch(test.sentence, -1)
+				if len(matches) > 0 {
+					break
+				}
+			}
 			if len(matches) == 0 {
 				t.Fatalf("no matches: %q", test.sentence)
 			}
@@ -239,12 +273,14 @@ func Test_IPutFilesIntoS3(t *testing.T) {
 					Prefix: "",
 					FS:     test.testFS,
 				},
-				S3Client: &mocks.S3Mock{
-					PutObjectFunc: func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
-						if test.putObjectFunc != nil {
-							return test.putObjectFunc(ctx, params, optFns...)
-						}
-						return &s3.PutObjectOutput{}, nil
+				S3: &bddcontext.S3Context{
+					Client: &mocks.S3Mock{
+						PutObjectFunc: func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+							if test.putObjectFunc != nil {
+								return test.putObjectFunc(ctx, params, optFns...)
+							}
+							return &s3.PutObjectOutput{}, nil
+						},
 					},
 				},
 			})

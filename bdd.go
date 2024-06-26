@@ -398,7 +398,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			return ctx, nil
 		})
 
-		initSteps(ctx)
+		InitSteps(ctx)
 
 		for _, fn := range opts.customStepFunc {
 			fn(ctx)

@@ -66,7 +66,13 @@ type ComposeContext struct {
 }
 
 type S3Context struct {
-	Client *s3.Client
+	Client interface {
+		s3.ListObjectsV2APIClient
+		s3.HeadObjectAPIClient
+
+		PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+		DeleteObjects(context.Context, *s3.DeleteObjectsInput, ...func(*s3.Options)) (*s3.DeleteObjectsOutput, error)
+	}
 }
 
 type HTTPContext struct {
