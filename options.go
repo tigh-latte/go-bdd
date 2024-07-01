@@ -64,7 +64,7 @@ type testSuiteOpts struct {
 
 	customViperConfigFunc ViperConfigFunc
 
-	dockerComposePaths []string
+	dockerComposeOptions *dockerComposeOptions
 }
 
 func (o *testSuiteOpts) applyConfig() {
@@ -91,6 +91,11 @@ type grpcOptions struct {
 }
 
 type dbOptions struct{}
+
+type dockerComposeOptions struct {
+	paths []string
+	env   map[string]string
+}
 
 type rmqOptions struct {
 	Host            string
@@ -490,6 +495,19 @@ func WithViperConfigFunc(fn ViperConfigFunc) TestSuiteOptionFunc {
 // WithDockerCompose
 func WithDockerCompose(paths ...string) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.dockerComposePaths = paths
+		if t.dockerComposeOptions == nil {
+			t.dockerComposeOptions = &dockerComposeOptions{}
+		}
+		t.dockerComposeOptions.paths = paths
+	}
+}
+
+// WithDockerComposeEnv
+func WithDockerComposeEnv(env map[string]string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		if t.dockerComposeOptions == nil {
+			t.dockerComposeOptions = &dockerComposeOptions{}
+		}
+		t.dockerComposeOptions.env = env
 	}
 }

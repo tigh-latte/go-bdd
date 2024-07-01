@@ -111,17 +111,17 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 			err  error
 		)
 		ctx.BeforeSuite(func() {
-			if len(opts.dockerComposePaths) == 0 {
+			if len(opts.dockerComposeOptions.paths) == 0 {
 				return
 			}
 			comp, err = compose.NewDockerComposeWith(
-				compose.WithStackFiles(opts.dockerComposePaths...),
+				compose.WithStackFiles(opts.dockerComposeOptions.paths...),
 				compose.StackIdentifier(strconv.FormatInt(time.Now().Unix(), 10)),
 			)
 			if err != nil {
 				panic(err)
 			}
-			if err = comp.Up(context.TODO()); err != nil {
+			if err = comp.WithEnv(opts.dockerComposeOptions.env).Up(context.TODO()); err != nil {
 				panic(err)
 			}
 			clients.ComposeStack = comp
@@ -257,8 +257,10 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 
 			sd.Template.Funcs(sprig.TxtFuncMap())
 			sd.Template.Funcs(template.FuncMap{
-				"scenarioStart": func() time.Time { return sd.ScenarioStart },
-				"stepStart":     func() time.Time { return sd.StepStart },
+				"scenarioStart":   func() time.Time { return sd.ScenarioStart },
+				"stepStart":       func() time.Time { return sd.StepStart },
+				"unixEpochMillis": func(t time.Time) int64 { return t.UnixMilli() },
+				"yearDay":         func(t time.Time) int { return t.YearDay() },
 				"add": func(l, r any) int {
 					left := toInt(l)
 					right := toInt(r)
