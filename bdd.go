@@ -178,48 +178,54 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	return func(ctx *godog.ScenarioContext) {
-		sd := &bddcontext.Context{
-			TemplateValues: make(map[string]any),
-			QRCodes:        stack.NewStack[*gozxing.Result](20),
-			MongoContext: &bddcontext.MongoContext{
-				IDs:           stack.NewStack[primitive.ObjectID](20),
-				DocumentIDMap: make(map[primitive.ObjectID]string, 0),
-				ToIgnore:      make([]string, 0),
-				TestData:      opts.mongoDataDir,
-				Client:        clients.MongoClient,
-			},
-			Compose: &bddcontext.ComposeContext{
-				Stack: clients.ComposeStack,
-			},
-			SQS: &bddcontext.SQSContext{
-				MsgAttrs:   make(map[string]sqstypes.MessageAttributeValue),
-				MessageIDs: stack.NewStack[string](20),
-				TestData:   opts.sqsDataDir,
-				Client:     clients.SQSClient,
-			},
-			DynamoDB: &bddcontext.DynamoDBContext{
-				Client:   clients.DynamoDBClient,
-				TestData: opts.dynamoDataDir,
-			},
-			HTTP: &bddcontext.HTTPContext{
-				Headers:       make(http.Header, 0),
-				Cookies:       make([]*http.Cookie, len(opts.cookies)),
-				Requests:      stack.NewStack[json.RawMessage](20),
-				Responses:     stack.NewStack[json.RawMessage](20),
-				ResponseCodes: stack.NewStack[int](20),
-				TestData:      opts.httpDataDir,
-				QueryParams:   make(url.Values),
-				ToIgnore:      make([]string, 0),
-				Client:        &http.Client{Timeout: 30 * time.Second, Transport: transport},
-				GlobalHeaders: make(map[string][]string, len(opts.globalHTTPHeaders)),
-			},
-			TestData:     opts.testDataDir,
-			IgnoreAlways: make([]string, len(opts.alwaysIgnore)),
-		}
+		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
+			sctx := &bddcontext.Context{
+				TemplateValues: make(map[string]any),
+				QRCodes:        stack.NewStack[*gozxing.Result](20),
+				MongoContext: &bddcontext.MongoContext{
+					IDs:           stack.NewStack[primitive.ObjectID](20),
+					DocumentIDMap: make(map[primitive.ObjectID]string, 0),
+					ToIgnore:      make([]string, 0),
+					TestData:      opts.mongoDataDir,
+					Client:        clients.MongoClient,
+				},
+				Compose: &bddcontext.ComposeContext{
+					Stack: clients.ComposeStack,
+				},
+				SQS: &bddcontext.SQSContext{
+					MsgAttrs:   make(map[string]sqstypes.MessageAttributeValue),
+					MessageIDs: stack.NewStack[string](20),
+					TestData:   opts.sqsDataDir,
+					Client:     clients.SQSClient,
+				},
+				DynamoDB: &bddcontext.DynamoDBContext{
+					Client:   clients.DynamoDBClient,
+					TestData: opts.dynamoDataDir,
+				},
+				HTTP: &bddcontext.HTTPContext{
+					Headers:       make(http.Header, 0),
+					Cookies:       make([]*http.Cookie, len(opts.cookies)),
+					Requests:      stack.NewStack[json.RawMessage](20),
+					Responses:     stack.NewStack[json.RawMessage](20),
+					ResponseCodes: stack.NewStack[int](20),
+					TestData:      opts.httpDataDir,
+					QueryParams:   make(url.Values),
+					ToIgnore:      make([]string, 0),
+					Client:        &http.Client{Timeout: 30 * time.Second, Transport: transport},
+					GlobalHeaders: make(map[string][]string, len(opts.globalHTTPHeaders)),
+				},
+				TestData:     opts.testDataDir,
+				IgnoreAlways: make([]string, len(opts.alwaysIgnore)),
+			}
+
+			return bddcontext.WithContext(ctx, sctx), nil
+		})
 
 		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
-			sd.ID = sn.Id
-			sd.Template = template.New(sd.ID)
+			sctx := bddcontext.LoadContext(ctx)
+
+			sctx.ID = sn.Id
+			sctx.Template = template.New(sctx.ID)
 			scenarioStart := time.Now().UTC()
 
 			today := time.Date(
@@ -243,22 +249,22 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				scenarioStart.Location(),
 			)
 
-			sd.ScenarioStart = scenarioStart
-			sd.TemplateValues["__scenario_id"] = sn.Id
-			sd.TemplateValues["__time_unix"] = sd.ScenarioStart.Unix()
-			sd.TemplateValues["__time_unix_milli"] = sd.ScenarioStart.UnixMilli()
-			sd.TemplateValues["__now"] = scenarioStart.String()
-			sd.TemplateValues["__today"] = today.Local().Format("2006-01-02")
-			sd.TemplateValues["__today_timestamp"] = today.Local().String()
-			sd.TemplateValues["__yesterday"] = yesterday.Local().Format("2006-01-02")
-			sd.TemplateValues["__yesterday_timestamp"] = yesterday.Local().String()
-			sd.TemplateValues["__tomorrow"] = tomorrow.Local().Format("2006-01-02")
-			sd.TemplateValues["__tomorrow_timestamp"] = tomorrow.Local().String()
+			sctx.ScenarioStart = scenarioStart
+			sctx.TemplateValues["__scenario_id"] = sn.Id
+			sctx.TemplateValues["__time_unix"] = sctx.ScenarioStart.Unix()
+			sctx.TemplateValues["__time_unix_milli"] = sctx.ScenarioStart.UnixMilli()
+			sctx.TemplateValues["__now"] = scenarioStart.String()
+			sctx.TemplateValues["__today"] = today.Local().Format("2006-01-02")
+			sctx.TemplateValues["__today_timestamp"] = today.Local().String()
+			sctx.TemplateValues["__yesterday"] = yesterday.Local().Format("2006-01-02")
+			sctx.TemplateValues["__yesterday_timestamp"] = yesterday.Local().String()
+			sctx.TemplateValues["__tomorrow"] = tomorrow.Local().Format("2006-01-02")
+			sctx.TemplateValues["__tomorrow_timestamp"] = tomorrow.Local().String()
 
-			sd.Template.Funcs(sprig.TxtFuncMap())
-			sd.Template.Funcs(template.FuncMap{
-				"scenarioStart":   func() time.Time { return sd.ScenarioStart },
-				"stepStart":       func() time.Time { return sd.StepStart },
+			sctx.Template.Funcs(sprig.TxtFuncMap())
+			sctx.Template.Funcs(template.FuncMap{
+				"scenarioStart":   func() time.Time { return sctx.ScenarioStart },
+				"stepStart":       func() time.Time { return sctx.StepStart },
 				"unixEpochMillis": func(t time.Time) int64 { return t.UnixMilli() },
 				"yearDay":         func(t time.Time) int { return t.YearDay() },
 				"add": func(l, r any) int {
@@ -300,15 +306,15 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 					return uuid.New().String()
 				},
 			})
-			sd.Template.Funcs(opts.customTemplateFuncs)
+			sctx.Template.Funcs(opts.customTemplateFuncs)
 
 			if opts.s3 != nil {
-				sd.S3 = &bddcontext.S3Context{
+				sctx.S3 = &bddcontext.S3Context{
 					Client: clients.S3Client,
 				}
 			}
 			if opts.ws != nil {
-				sd.WS = &bddcontext.WebsocketContext{
+				sctx.WS = &bddcontext.WebsocketContext{
 					Host:    "TODO",
 					Timeout: opts.ws.Timeout,
 					Connections: make(map[string]struct {
@@ -320,7 +326,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				}
 			}
 
-			return bddcontext.WithContext(ctx, sd), nil
+			return bddcontext.WithContext(ctx, sctx), nil
 		})
 
 		// copy gobal data into scenario context.
@@ -355,8 +361,9 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 
 		ctx.StepContext().Before(func(ctx context.Context, st *godog.Step) (context.Context, error) {
 			// Whatever we want to do can be added here.
-			sd.StepStart = time.Now().UTC()
-			return ctx, nil
+			sctx := bddcontext.LoadContext(ctx)
+			sctx.StepStart = time.Now().UTC()
+			return bddcontext.WithContext(ctx, sctx), nil
 		})
 		ctx.StepContext().Before(func(ctx context.Context, st *godog.Step) (context.Context, error) {
 			return opts.customBeforeStepFunc(ctx, st)
@@ -384,13 +391,14 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 			return ctx, b.Compose.Stack.Down(ctx)
 		})
 		ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
+			sctx := bddcontext.LoadContext(ctx)
 			if opts.ws != nil {
-				for _, connection := range sd.WS.Connections {
-					sd.WS.Client.Close(ctx, connection.SessionID)
+				for _, connection := range sctx.WS.Connections {
+					sctx.WS.Client.Close(ctx, connection.SessionID)
 				}
 			}
 
-			return ctx, nil
+			return bddcontext.WithContext(ctx, sctx), nil
 		})
 
 		InitSteps(ctx)
