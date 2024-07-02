@@ -796,6 +796,21 @@ func ISendARequestToWithJSONAsString(ctx context.Context, verb, host, port, endp
 
 	req.Header.Add("Content-Type", "application/json")
 
+	for k, v := range t.HTTP.GlobalHeaders {
+		ctx, err = TheHTTPHeaders(ctx, &godog.Table{
+			Rows: []*messages.PickleTableRow{{}, {
+				Cells: []*messages.PickleTableCell{{
+					Value: k,
+				}, {
+					Value: v[0],
+				}},
+			}},
+		})
+		if err != nil {
+			return ctx, fmt.Errorf("failed to set header %s: %v", k, v)
+		}
+	}
+
 	for k, v := range t.HTTP.Headers {
 		for _, header := range v {
 			req.Header.Add(k, header)
@@ -930,6 +945,21 @@ func ISendARequestToWithJSON(ctx context.Context, verb, host, port, endpoint, fi
 	}
 
 	req.Header.Add("Content-Type", "application/json")
+
+	for k, v := range t.HTTP.GlobalHeaders {
+		ctx, err = TheHTTPHeaders(ctx, &godog.Table{
+			Rows: []*messages.PickleTableRow{{}, {
+				Cells: []*messages.PickleTableCell{{
+					Value: k,
+				}, {
+					Value: v[0],
+				}},
+			}},
+		})
+		if err != nil {
+			return ctx, fmt.Errorf("failed to set header %s: %v", k, v)
+		}
+	}
 
 	for k, v := range t.HTTP.Headers {
 		for _, header := range v {

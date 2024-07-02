@@ -325,18 +325,11 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 
 		// copy gobal data into scenario context.
 		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
-			copy(sd.HTTP.Cookies, opts.cookies)
-			copy(sd.IgnoreAlways, opts.alwaysIgnore)
-			hdrs := maps.Clone(opts.globalHTTPHeaders)
-			for k, v := range hdrs {
-				if len(v) == 0 {
-					panic("not value provided for header " + k)
-				}
-				k = TemplateValue(k).MustRender(ctx)
-				v[0] = TemplateValue(v[0]).MustRender(ctx)
-				sd.HTTP.Headers.Set(k, v[0])
-			}
-			return ctx, nil
+			bctx := bddcontext.LoadContext(ctx)
+			copy(bctx.HTTP.Cookies, opts.cookies)
+			copy(bctx.IgnoreAlways, opts.alwaysIgnore)
+			maps.Copy(bctx.HTTP.GlobalHeaders, opts.globalHTTPHeaders)
+			return bddcontext.WithContext(ctx, bctx), nil
 		})
 
 		ctx.Before(func(ctx context.Context, sn *godog.Scenario) (context.Context, error) {
