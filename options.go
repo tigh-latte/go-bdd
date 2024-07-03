@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/tigh-latte/go-bdd/clients"
 	"github.com/tigh-latte/go-bdd/internal/websocket"
 
@@ -92,9 +93,15 @@ type grpcOptions struct {
 
 type dbOptions struct{}
 
+type dockerComposeWaitFor struct {
+	name  string
+	strat wait.Strategy
+}
+
 type dockerComposeOptions struct {
-	paths []string
-	env   map[string]string
+	paths   []string
+	env     map[string]string
+	waitFor []dockerComposeWaitFor
 }
 
 type rmqOptions struct {
@@ -492,7 +499,7 @@ func WithViperConfigFunc(fn ViperConfigFunc) TestSuiteOptionFunc {
 	}
 }
 
-// WithDockerCompose
+// WithDockerCompose stack.
 func WithDockerCompose(paths ...string) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
 		if t.dockerComposeOptions == nil {
@@ -502,12 +509,29 @@ func WithDockerCompose(paths ...string) TestSuiteOptionFunc {
 	}
 }
 
-// WithDockerComposeEnv
+// WithDockerComposeEnv apply an env to the provided stack.
 func WithDockerComposeEnv(env map[string]string) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
 		if t.dockerComposeOptions == nil {
 			t.dockerComposeOptions = &dockerComposeOptions{}
 		}
 		t.dockerComposeOptions.env = env
+	}
+}
+
+// WithDockerComposeWaitFor wait for a service to be read on Up.
+// Multiple calls registers multiple waits.
+func WithDockerComposeWaitFor(service string, strat wait.Strategy) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		if t.dockerComposeOptions == nil {
+			t.dockerComposeOptions = &dockerComposeOptions{}
+		}
+		if t.dockerComposeOptions.waitFor == nil {
+			t.dockerComposeOptions.waitFor = make([]dockerComposeWaitFor, 0, 1)
+		}
+		t.dockerComposeOptions.waitFor = append(t.dockerComposeOptions.waitFor, dockerComposeWaitFor{
+			name:  service,
+			strat: strat,
+		})
 	}
 }

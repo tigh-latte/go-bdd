@@ -121,6 +121,9 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 			if err != nil {
 				panic(err)
 			}
+			for _, wf := range opts.dockerComposeOptions.waitFor {
+				comp = comp.WaitForService(wf.name, wf.strat)
+			}
 			if err = comp.WithEnv(opts.dockerComposeOptions.env).Up(context.TODO()); err != nil {
 				panic(err)
 			}
