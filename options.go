@@ -25,25 +25,27 @@ type User struct {
 }
 
 type testSuiteOpts struct {
-	db       *dbOptions
-	s3       *clients.S3Options
-	sqs      *clients.SQSOptions
-	dynamodb *clients.DynamoDBOptions
-	mongo    *clients.MongoOptions
-	rmq      *rmqOptions
-	grpcs    []grpcOptions
-	ws       *wsOptions
+	db           *dbOptions
+	s3           *clients.S3Options
+	sqs          *clients.SQSOptions
+	dynamodb     *clients.DynamoDBOptions
+	mongo        *clients.MongoOptions
+	googlepubsub *clients.GooglePubSubOptions
+	rmq          *rmqOptions
+	grpcs        []grpcOptions
+	ws           *wsOptions
 
 	concurrency int
 
-	featureFS     fs.FS
-	testDataDir   *data.DataDir
-	rabbitDataDir *data.DataDir
-	httpDataDir   *data.DataDir
-	sqsDataDir    fs.FS
-	dynamoDataDir fs.FS
-	mongoDataDir  *data.DataDir
-	wsDataDir     *data.DataDir
+	featureFS           fs.FS
+	testDataDir         *data.Dir
+	rabbitDataDir       *data.Dir
+	httpDataDir         *data.Dir
+	sqsDataDir          fs.FS
+	googlepubsubDataDir fs.FS
+	dynamoDataDir       fs.FS
+	mongoDataDir        *data.Dir
+	wsDataDir           *data.Dir
 
 	cookies      []*http.Cookie
 	alwaysIgnore []string
@@ -151,9 +153,37 @@ func WithSQS(host, key, secret string) TestSuiteOptionFunc {
 //	cucumber.NewSuite("test", cucumber.WithSQSTestData(sqsData))
 func WithSQSTestData(fsys fs.FS) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.sqsDataDir = &data.DataDir{
+		t.sqsDataDir = &data.Dir{
 			FS:     fsys,
 			Prefix: "sqs",
+		}
+	}
+}
+
+// WithGooglePubSub pubsub.
+func WithGooglePubSub(host, projectID string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.googlepubsub = &clients.GooglePubSubOptions{
+			Host:      host,
+			ProjectID: projectID,
+		}
+	}
+}
+
+// WithGooglePubSubTestData takes an `fs.FS` of which to retrieve Google PubSub message bodies from.
+// This function assumes the data will be in a directory named `gpubsub`.
+//
+// Usage example (using `embed.FS`):
+//
+//	//go:embed gpubsub/*
+//	var gpubsubData embed.FS
+//	. . .
+//	cucumber.NewSuite("test", cucumber.WithGooglePubSubTestData(sqsData))
+func WithGooglePubSubTestData(fsys fs.FS) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.googlepubsubDataDir = &data.Dir{
+			FS:     fsys,
+			Prefix: "gpubsub",
 		}
 	}
 }
@@ -179,7 +209,7 @@ func WithDynamoDB(host, key, secret string) TestSuiteOptionFunc {
 //	cucumber.NewSuite("test", cucumber.WithSQSTestData(sqsData))
 func WithDynamoDBTestData(fsys fs.FS) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.dynamoDataDir = &data.DataDir{
+		t.dynamoDataDir = &data.Dir{
 			FS:     fsys,
 			Prefix: "dynamodb",
 		}
@@ -221,7 +251,7 @@ func WithFeatureFS(fsys fs.FS) TestSuiteOptionFunc {
 //	cucumber.NewSuite("test", cucumber.WithRabbitMQTestData(rabbitData))
 func WithRabbitMQTestData(fsys fs.FS) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.rabbitDataDir = &data.DataDir{
+		t.rabbitDataDir = &data.Dir{
 			FS:     fsys,
 			Prefix: "rabbitmq",
 		}
@@ -257,7 +287,7 @@ func WithWebsockets(timeout time.Duration) TestSuiteOptionFunc {
 //	cucumber.NewSuite("test", cucumber.WithWebsocketsTestData(websocketData))
 func WithWebsocketsTestData(fs fs.FS) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.wsDataDir = &data.DataDir{
+		t.wsDataDir = &data.Dir{
 			FS:     fs,
 			Prefix: "websockets",
 		}
@@ -380,7 +410,7 @@ func WithCustomSteps(fns ...TestCustomStepFunc) TestSuiteOptionFunc {
 //	cucumber.NewSuite("test", cucumber.WithTestData(testData))
 func WithTestData(fsys fs.FS) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.testDataDir = &data.DataDir{
+		t.testDataDir = &data.Dir{
 			FS:     fsys,
 			Prefix: "testdata",
 		}
@@ -398,7 +428,7 @@ func WithTestData(fsys fs.FS) TestSuiteOptionFunc {
 //	cucumber.NewSuite("test", cucumber.WithHTTPData(httpData))
 func WithHTTPData(fsys fs.FS) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.httpDataDir = &data.DataDir{
+		t.httpDataDir = &data.Dir{
 			FS:     fsys,
 			Prefix: "http",
 		}
@@ -433,7 +463,7 @@ func WithGlobalHTTPHeaders(headers map[string]string) TestSuiteOptionFunc {
 //	cucumber.NewSuite("test", cucumber.WithMongoData(httpData))
 func WithMongoData(fsys fs.FS) TestSuiteOptionFunc {
 	return func(t *testSuiteOpts) {
-		t.mongoDataDir = &data.DataDir{
+		t.mongoDataDir = &data.Dir{
 			FS:     fsys,
 			Prefix: "mongo",
 		}

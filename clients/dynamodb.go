@@ -18,6 +18,9 @@ type DynamoDBOptions struct {
 }
 
 func InitDynamoDB(opts *DynamoDBOptions) error {
+	if opts == nil {
+		return nil
+	}
 	staticCredentialProvider := aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
 		return aws.Credentials{
 			AccessKeyID:     opts.Key,

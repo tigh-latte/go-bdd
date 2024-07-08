@@ -16,6 +16,7 @@ import (
 	"text/template"
 	"time"
 
+	"cloud.google.com/go/pubsub"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
@@ -49,7 +50,11 @@ func InitSteps(ctx StepAdder) {
 	// SQS
 	ctx.Step(`^the SQS attributes:$`, TheSQSAttributes)
 	ctx.Step(`^I send an SQS message to queue "([^"]*)" using "([^"]*)"$`, ISendAnSQSMessageToQueueUsing)
-	ctx.Step(`^I send an SQS message to queue "([^"]*)":$`, ISendAnSQSMessageToQueueUsing)
+	ctx.Step(`^I send an SQS message to queue "([^"]*)":$`, ISendAnSQSMessageToQueue)
+
+	// Google PubSub
+	ctx.Step(`^I send a google pubsub message to topic "([^"]*)" using "([^"]*)"$`, ISendAGooglePubsubMessageToTopicUsing)
+	ctx.Step(`^I send a google pubsub message to topic "([^"]*)":$`, ISendAGooglePubsubMessageToTopic)
 
 	// Mongo
 	ctx.Step("^I put the following documents in the corresponding collections and databases:$", IPutDocumentsInMongo)
@@ -568,6 +573,44 @@ func ISendAnSQSMessageToQueue(ctx context.Context, queue string, msg string) err
 
 	if err := t.SQS.MessageIDs.Push(*sendResp.MessageId); err != nil {
 		return fmt.Errorf("failed to push msg: %w", err)
+	}
+
+	return nil
+}
+
+func ISendAGooglePubsubMessageToTopicUsing(ctx context.Context, topic string, file string) error {
+	t := bddcontext.LoadContext(ctx)
+	f, err := t.GooglePubSub.TestData.Open(file + ".json")
+	if err != nil {
+		return fmt.Errorf("failed to open %q: %w", file, err)
+	}
+
+	bb, err := io.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("failed to read file %q: %w", file, err)
+	}
+
+	return ISendAGooglePubsubMessageToTopic(ctx, topic, string(bb))
+}
+
+func ISendAGooglePubsubMessageToTopic(ctx context.Context, topic string, msgTxt string) error {
+	t := bddcontext.LoadContext(ctx)
+
+	rendered, err := TemplateValue(msgTxt).Render(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to render template: %w", err)
+	}
+
+	result := t.GooglePubSub.Client.Topic(topic).Publish(ctx, &pubsub.Message{
+		Data: []byte(rendered),
+	})
+	id, err := result.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to publsh pubsub message: %w", err)
+	}
+
+	if err = t.GooglePubSub.MessageIDs.Push(id); err != nil {
+		return fmt.Errorf("failed to push sent message to stack: %w", err)
 	}
 
 	return nil

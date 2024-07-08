@@ -9,6 +9,7 @@ import (
 	"text/template"
 	"time"
 
+	"cloud.google.com/go/pubsub"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
@@ -46,6 +47,8 @@ type Context struct {
 
 	SQS *SQSContext
 
+	GooglePubSub *GooglePubSub
+
 	DynamoDB *DynamoDBContext
 
 	S3 *S3Context
@@ -59,6 +62,12 @@ type Context struct {
 	MongoContext *MongoContext
 
 	IgnoreAlways []string
+}
+
+type GooglePubSub struct {
+	Client     *pubsub.Client
+	MessageIDs *stack.Stack[string]
+	TestData   fs.FS
 }
 
 type ComposeContext struct {

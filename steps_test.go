@@ -269,7 +269,7 @@ func Test_IPutFilesIntoS3(t *testing.T) {
 			t.Parallel()
 
 			ctx := bddcontext.WithContext(context.Background(), &bddcontext.Context{
-				TestData: &data.DataDir{
+				TestData: &data.Dir{
 					Prefix: "",
 					FS:     test.testFS,
 				},

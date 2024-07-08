@@ -5,11 +5,11 @@ import (
 	"path"
 )
 
-type DataDir struct {
+type Dir struct {
 	Prefix string
 	FS     fs.FS
 }
 
-func (d *DataDir) Open(parts string) (fs.File, error) {
+func (d *Dir) Open(parts string) (fs.File, error) {
 	return d.FS.Open(path.Join(d.Prefix, parts))
 }
