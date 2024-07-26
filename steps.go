@@ -53,8 +53,9 @@ func InitSteps(ctx StepAdder) {
 	ctx.Step(`^I send an SQS message to queue "([^"]*)":$`, ISendAnSQSMessageToQueue)
 
 	// Google PubSub
-	ctx.Step(`^I send a google pubsub message to topic "([^"]*)" using "([^"]*)"$`, ISendAGooglePubsubMessageToTopicUsing)
-	ctx.Step(`^I send a google pubsub message to topic "([^"]*)":$`, ISendAGooglePubsubMessageToTopic)
+	ctx.Step(`^the Google pubsub attributes:$`, TheGooglePubSubAttributes)
+	ctx.Step(`^I send a Google pubsub message to topic "([^"]*)" using "([^"]*)"$`, ISendAGooglePubsubMessageToTopicUsing)
+	ctx.Step(`^I send a Google pubsub message to topic "([^"]*)":$`, ISendAGooglePubsubMessageToTopic)
 
 	// Mongo
 	ctx.Step("^I put the following documents in the corresponding collections and databases:$", IPutDocumentsInMongo)
@@ -578,6 +579,24 @@ func ISendAnSQSMessageToQueue(ctx context.Context, queue string, msg string) err
 	return nil
 }
 
+func TheGooglePubSubAttributes(ctx context.Context, table *godog.Table) error {
+	t := bddcontext.LoadContext(ctx)
+	for _, row := range table.Rows[1:] {
+		var (
+			key, kErr = TemplateValue(row.Cells[0].Value).Render(ctx)
+			val, vErr = TemplateValue(row.Cells[1].Value).Render(ctx)
+		)
+		if kErr != nil {
+			return fmt.Errorf("failed to render attribute key %q: %w", key, kErr)
+		}
+		if vErr != nil {
+			return fmt.Errorf("failed to render attribute value %q: %w", val, vErr)
+		}
+		t.GooglePubSub.MsgAttrs[key] = val
+	}
+	return nil
+}
+
 func ISendAGooglePubsubMessageToTopicUsing(ctx context.Context, topic string, file string) error {
 	t := bddcontext.LoadContext(ctx)
 	f, err := t.GooglePubSub.TestData.Open(file + ".json")
@@ -600,9 +619,9 @@ func ISendAGooglePubsubMessageToTopic(ctx context.Context, topic string, msgTxt 
 	if err != nil {
 		return fmt.Errorf("failed to render template: %w", err)
 	}
-
 	result := t.GooglePubSub.Client.Topic(topic).Publish(ctx, &pubsub.Message{
-		Data: []byte(rendered),
+		Data:       []byte(rendered),
+		Attributes: t.GooglePubSub.MsgAttrs,
 	})
 	id, err := result.Get(ctx)
 	if err != nil {

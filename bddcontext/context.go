@@ -64,12 +64,6 @@ type Context struct {
 	IgnoreAlways []string
 }
 
-type GooglePubSub struct {
-	Client     *pubsub.Client
-	MessageIDs *stack.Stack[string]
-	TestData   fs.FS
-}
-
 type ComposeContext struct {
 	Stack compose.ComposeStack
 }
@@ -112,6 +106,15 @@ type SQSContext struct {
 	}
 
 	TestData fs.FS
+}
+
+type GooglePubSub struct {
+	Client   *pubsub.Client
+	TestData fs.FS
+
+	MsgAttrs map[string]string
+
+	MessageIDs *stack.Stack[string]
 }
 
 type DynamoDBContext struct {

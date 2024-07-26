@@ -143,12 +143,9 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 			if err = clients.InitDynamoDB(opts.dynamodb); err != nil {
 				panic(err)
 			}
-			fmt.Println("initing google with opts", opts)
 			if err = clients.InitGooglePubSub(opts.googlepubsub); err != nil {
-				fmt.Println("failed to init google: %w", err)
 				panic(err)
 			}
-			fmt.Println("inited google with opts", opts)
 		})
 
 		ctx.BeforeSuite(func() {
@@ -209,6 +206,7 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 				},
 				GooglePubSub: &bddcontext.GooglePubSub{
 					Client:     clients.GooglePubSubClient,
+					MsgAttrs:   make(map[string]string),
 					MessageIDs: stack.NewStack[string](20),
 					TestData:   opts.googlepubsubDataDir,
 				},
