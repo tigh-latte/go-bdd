@@ -91,6 +91,7 @@ func InitSteps(ctx StepAdder) {
 	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON "([^"]*)"$`, ISendARequestToWithJSON)
 	ctx.Step(`^I send a (HEAD|GET|DELETE|POST|PATCH|PUT) request to "([^:/]*)?(:\d+)?([^"]*)" with JSON:$`, ISendARequestToWithJSONAsString)
 	ctx.Step(`^the HTTP response code should be (\d*)$`, TheHTTPResponseCodeShouldBe)
+	ctx.Step(`^the HTTP response code is (\d*)$`, TheHTTPResponseCodeShouldBe)
 	ctx.Step(`^the response should be (\w*)$`, TheResponseShouldBe)
 	ctx.Step(`^the response is (\w*)$`, TheResponseShouldBe)
 	ctx.Step(`^the response body should match JSON "([^"]*)"$`, TheResponseBodyShouldMatchJSON)
