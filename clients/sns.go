@@ -11,12 +11,6 @@ import (
 
 var SNSClient *sns.Client
 
-type SNSOptions struct {
-	Host   string
-	Key    string
-	Secret string
-}
-
 func InitSNS(opts *AWSOptions) error {
 	if opts == nil {
 		return nil

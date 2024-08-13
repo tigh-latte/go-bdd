@@ -11,12 +11,6 @@ import (
 
 var DynamoDBClient *dynamodb.Client
 
-type DynamoDBOptions struct {
-	Host   string
-	Key    string
-	Secret string
-}
-
 func InitDynamoDB(opts *AWSOptions) error {
 	if opts == nil {
 		return nil

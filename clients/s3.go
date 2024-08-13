@@ -11,13 +11,6 @@ import (
 
 var S3Client *s3.Client
 
-type S3Options struct {
-	Host   string
-	Key    string
-	Secret string
-}
-
-// func InitS3(opts *S3Options) error {
 func InitS3(opts *AWSOptions) error {
 	// Nothing to init.
 	if opts == nil {
