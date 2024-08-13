@@ -30,6 +30,7 @@ func InitDynamoDB(opts *AWSOptions) error {
 
 	cfg, err := awsconfig.LoadDefaultConfig(
 		context.TODO(),
+		awsconfig.WithRegion(opts.Region),
 		awsconfig.WithRetryMaxAttempts(3),
 		awsconfig.WithCredentialsProvider(aws.CredentialsProvider(staticCredentialProvider)),
 	)

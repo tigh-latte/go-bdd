@@ -24,7 +24,7 @@ func InitSQS(opts *AWSOptions) error {
 
 	cfg, err := awsconfig.LoadDefaultConfig(
 		context.TODO(),
-		awsconfig.WithRegion("eu-west-1"),
+		awsconfig.WithRegion(opts.Region),
 		awsconfig.WithRetryMaxAttempts(3),
 		awsconfig.WithCredentialsProvider(aws.CredentialsProvider(staticCredentialProvider)),
 	)
