@@ -19,21 +19,21 @@ import (
 
 type TestSuiteOptionFunc func(t *testSuiteOpts)
 
-type User struct {
-	Username string
-	APIKey   string
-}
-
 type testSuiteOpts struct {
 	db           *dbOptions
-	s3           *clients.S3Options
-	sqs          *clients.SQSOptions
-	dynamodb     *clients.DynamoDBOptions
 	mongo        *clients.MongoOptions
 	googlepubsub *clients.GooglePubSubOptions
 	rmq          *rmqOptions
 	grpcs        []grpcOptions
 	ws           *wsOptions
+
+	aws      *clients.AWSOptions
+	sqs      *clients.AWSOptions
+	sns      *clients.AWSOptions
+	s3       *clients.AWSOptions
+	dynamodb *clients.AWSOptions
+
+	snsTopics []string
 
 	concurrency int
 
@@ -122,26 +122,6 @@ type wsOptions struct {
 	Client  websocket.Client
 }
 
-func WithS3(host, key, secret string) TestSuiteOptionFunc {
-	return func(t *testSuiteOpts) {
-		t.s3 = &clients.S3Options{
-			Host:   host,
-			Key:    key,
-			Secret: secret,
-		}
-	}
-}
-
-func WithSQS(host, key, secret string) TestSuiteOptionFunc {
-	return func(t *testSuiteOpts) {
-		t.sqs = &clients.SQSOptions{
-			Host:   host,
-			Key:    key,
-			Secret: secret,
-		}
-	}
-}
-
 // WithSQSTestData takes an `fs.FS` of which to retrieve sqs message bodies from.
 // This function assumes the data will be in a directory titled `sqs`.
 //
@@ -157,6 +137,12 @@ func WithSQSTestData(fsys fs.FS) TestSuiteOptionFunc {
 			FS:     fsys,
 			Prefix: "sqs",
 		}
+	}
+}
+
+func WithSNSTopicListners(queues ...string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.snsTopics = append(t.snsTopics, queues...)
 	}
 }
 
@@ -184,16 +170,6 @@ func WithGooglePubSubTestData(fsys fs.FS) TestSuiteOptionFunc {
 		t.googlepubsubDataDir = &data.Dir{
 			FS:     fsys,
 			Prefix: "gpubsub",
-		}
-	}
-}
-
-func WithDynamoDB(host, key, secret string) TestSuiteOptionFunc {
-	return func(t *testSuiteOpts) {
-		t.dynamodb = &clients.DynamoDBOptions{
-			Host:   host,
-			Key:    key,
-			Secret: secret,
 		}
 	}
 }
@@ -230,6 +206,32 @@ func WithRabbitMQ(host string, deliveryTimeout time.Duration, subs ...RabbitMQSu
 			Host:            host,
 			DeliveryTimeout: deliveryTimeout,
 			Subs:            subs,
+		}
+	}
+}
+
+func WithAWS(host, region, key, secret string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.aws = &clients.AWSOptions{
+			Host:   host,
+			Region: region,
+			Key:    key,
+			Secret: secret,
+		}
+		t.s3 = t.aws
+		t.sqs = t.aws
+		t.sns = t.aws
+		t.dynamodb = t.aws
+	}
+}
+
+func WithDynamoDB(host, region, key, secret string) TestSuiteOptionFunc {
+	return func(t *testSuiteOpts) {
+		t.dynamodb = &clients.AWSOptions{
+			Host:   host,
+			Region: region,
+			Key:    key,
+			Secret: secret,
 		}
 	}
 }

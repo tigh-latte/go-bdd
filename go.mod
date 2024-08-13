@@ -7,13 +7,15 @@ toolchain go1.22.4
 require (
 	cloud.google.com/go/pubsub v1.40.0
 	github.com/Masterminds/sprig/v3 v3.2.3
-	github.com/aws/aws-sdk-go-v2 v1.30.0
+	github.com/aws/aws-sdk-go-v2 v1.30.3
 	github.com/aws/aws-sdk-go-v2/config v1.27.18
+	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.14.5
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.7.27
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.33.2
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.55.1
+	github.com/aws/aws-sdk-go-v2/service/sns v1.31.3
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.32.6
-	github.com/aws/smithy-go v1.20.2
+	github.com/aws/smithy-go v1.20.3
 	github.com/brianvoe/gofakeit/v5 v5.11.2
 	github.com/cucumber/godog v0.13.0
 	github.com/cucumber/messages/go/v21 v21.0.1
@@ -33,7 +35,6 @@ require (
 	github.com/yazgazan/jaydiff v0.3.1
 	github.com/zeroflucs-given/generics v0.0.0-20230611080924-a806fa480d35
 	go.mongodb.org/mongo-driver v1.16.0
-	google.golang.org/api v0.186.0
 )
 
 require (
@@ -53,10 +54,9 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.2 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.18 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.14.5 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.5 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.12 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.12 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.15 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.15 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v1.21.1 // indirect
@@ -242,6 +242,7 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
+	google.golang.org/api v0.186.0 // indirect
 	google.golang.org/genproto v0.0.0-20240617180043-68d350f18fd4 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240617180043-68d350f18fd4 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240617180043-68d350f18fd4 // indirect

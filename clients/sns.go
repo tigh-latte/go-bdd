@@ -6,12 +6,18 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
 )
 
-var SQSClient *sqs.Client
+var SNSClient *sns.Client
 
-func InitSQS(opts *AWSOptions) error {
+type SNSOptions struct {
+	Host   string
+	Key    string
+	Secret string
+}
+
+func InitSNS(opts *AWSOptions) error {
 	if opts == nil {
 		return nil
 	}
@@ -29,12 +35,12 @@ func InitSQS(opts *AWSOptions) error {
 		awsconfig.WithCredentialsProvider(aws.CredentialsProvider(staticCredentialProvider)),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to init sqs config: %w", err)
+		return fmt.Errorf("failed to init sns config: %w", err)
 	}
 
-	SQSClient = sqs.NewFromConfig(
+	SNSClient = sns.NewFromConfig(
 		cfg,
-		sqs.WithEndpointResolverV2(endpoint[sqs.EndpointParameters](opts.Host)),
+		sns.WithEndpointResolverV2(endpoint[sns.EndpointParameters](opts.Host)),
 	)
 
 	return nil

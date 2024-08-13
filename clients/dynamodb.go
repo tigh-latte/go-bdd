@@ -17,7 +17,7 @@ type DynamoDBOptions struct {
 	Secret string
 }
 
-func InitDynamoDB(opts *DynamoDBOptions) error {
+func InitDynamoDB(opts *AWSOptions) error {
 	if opts == nil {
 		return nil
 	}

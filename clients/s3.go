@@ -17,7 +17,8 @@ type S3Options struct {
 	Secret string
 }
 
-func InitS3(opts *S3Options) error {
+// func InitS3(opts *S3Options) error {
+func InitS3(opts *AWSOptions) error {
 	// Nothing to init.
 	if opts == nil {
 		return nil
@@ -32,8 +33,7 @@ func InitS3(opts *S3Options) error {
 
 	cfg, err := awsconfig.LoadDefaultConfig(
 		context.TODO(),
-		awsconfig.WithRegion("dev"),
-		// awsconfig.WithEndpointResolverWithOptions(customResolver),
+		awsconfig.WithRegion(opts.Region),
 		awsconfig.WithCredentialsProvider(aws.CredentialsProvider(statusCredentialProvider)),
 	)
 	if err != nil {

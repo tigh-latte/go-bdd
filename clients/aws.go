@@ -8,6 +8,13 @@ import (
 	transport "github.com/aws/smithy-go/endpoints"
 )
 
+type AWSOptions struct {
+	Host   string
+	Region string
+	Key    string
+	Secret string
+}
+
 func endpoint[T any](s string) EndpointResolver[T] {
 	uri, err := url.Parse(s)
 	if err != nil {

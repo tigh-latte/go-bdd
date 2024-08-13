@@ -16,6 +16,9 @@ import (
 	"time"
 
 	"github.com/Masterminds/sprig/v3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
@@ -53,10 +56,10 @@ type Suite struct {
 	reqFns RequireFuncs
 }
 
-func NewSuite(name string, oo ...TestSuiteOptionFunc) *Suite {
+func NewSuite(name string, opts ...TestSuiteOptionFunc) *Suite {
 	godogOpts.Paths = pflag.Args()
 
-	opts := &testSuiteOpts{
+	o := &testSuiteOpts{
 		customBeforeSuiteFunc: noopTestSuiteHook,
 		customAfterSuiteFunc:  noopTestSuiteHook,
 
@@ -71,12 +74,14 @@ func NewSuite(name string, oo ...TestSuiteOptionFunc) *Suite {
 		customTemplateFuncs:   make(template.FuncMap),
 		customViperConfigFunc: func(v *viper.Viper) {},
 
+		snsTopics: make([]string, 0),
+
 		cookies:           make([]*http.Cookie, 0),
 		alwaysIgnore:      make([]string, 0),
 		globalHTTPHeaders: make(map[string][]string, 0),
 	}
-	for _, o := range oo {
-		o(opts)
+	for _, opt := range opts {
+		opt(o)
 	}
 
 	s := &Suite{
@@ -86,9 +91,9 @@ func NewSuite(name string, oo ...TestSuiteOptionFunc) *Suite {
 			Options: &godogOpts,
 		},
 	}
-	s.suite.TestSuiteInitializer = s.initSuite(opts)
-	s.suite.ScenarioInitializer = s.initScenario(opts)
-	godogOpts.FS = opts.featureFS
+	s.suite.TestSuiteInitializer = s.initSuite(o)
+	s.suite.ScenarioInitializer = s.initScenario(o)
+	godogOpts.FS = o.featureFS
 
 	return s
 }
@@ -119,12 +124,14 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 				compose.StackIdentifier(strconv.FormatInt(time.Now().Unix(), 10)),
 			)
 			if err != nil {
+				fmt.Println("failed to build compose", err)
 				panic(err)
 			}
 			for _, wf := range opts.dockerComposeOptions.waitFor {
 				comp = comp.WaitForService(wf.name, wf.strat)
 			}
 			if err = comp.WithEnv(opts.dockerComposeOptions.env).Up(context.TODO()); err != nil {
+				fmt.Println("failed to init compose", err)
 				panic(err)
 			}
 			clients.ComposeStack = comp
@@ -132,18 +139,27 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 
 		ctx.BeforeSuite(func() {
 			if err = clients.InitS3(opts.s3); err != nil {
-				panic(err)
-			}
-			if err = clients.InitMongo(opts.mongo); err != nil {
+				fmt.Println("failed to init s3", err)
 				panic(err)
 			}
 			if err = clients.InitSQS(opts.sqs); err != nil {
+				fmt.Println("failed to init sqs", err)
+				panic(err)
+			}
+			if err = clients.InitSNS(opts.sns); err != nil {
+				fmt.Println("failed to init sns", err)
 				panic(err)
 			}
 			if err = clients.InitDynamoDB(opts.dynamodb); err != nil {
+				fmt.Println("failed to init dynamodb", err)
 				panic(err)
 			}
 			if err = clients.InitGooglePubSub(opts.googlepubsub); err != nil {
+				fmt.Println("failed to init pubsub", err)
+				panic(err)
+			}
+			if err = clients.InitMongo(opts.mongo); err != nil {
+				fmt.Println("failed to init mongo", err)
 				panic(err)
 			}
 		})
@@ -155,6 +171,69 @@ func (s *Suite) initSuite(opts *testSuiteOpts) func(ctx *godog.TestSuiteContext)
 				}
 				s.reqFns[k] = v
 			}
+		})
+
+		ctx.BeforeSuite(func() {
+			if len(opts.snsTopics) == 0 {
+				return
+			}
+
+			var resp *sqs.CreateQueueOutput
+			resp, err = clients.SQSClient.CreateQueue(context.TODO(), &sqs.CreateQueueInput{
+				QueueName: aws.String("testqueue.fifo"),
+				Attributes: map[string]string{
+					string(sqstypes.QueueAttributeNameFifoQueue):                 "true",
+					string(sqstypes.QueueAttributeNameContentBasedDeduplication): "true",
+				},
+			})
+			if err != nil {
+				fmt.Println(err)
+				panic(err)
+			}
+
+			var attrResp *sqs.GetQueueAttributesOutput
+			attrResp, err = clients.SQSClient.GetQueueAttributes(context.TODO(), &sqs.GetQueueAttributesInput{
+				QueueUrl: resp.QueueUrl,
+				AttributeNames: []sqstypes.QueueAttributeName{
+					sqstypes.QueueAttributeNameQueueArn,
+				},
+			})
+			if err != nil {
+				fmt.Println(err)
+				panic(err)
+			}
+			arn := attrResp.Attributes[string(sqstypes.QueueAttributeNameQueueArn)]
+
+			for _, topic := range opts.snsTopics {
+				_, err = clients.SNSClient.Subscribe(context.TODO(), &sns.SubscribeInput{
+					TopicArn: &topic,
+					Protocol: aws.String("sqs"),
+					Endpoint: &arn,
+				})
+				if err != nil {
+					fmt.Println(err)
+					panic(err)
+				}
+			}
+
+			go func() {
+				for {
+					var msgs *sqs.ReceiveMessageOutput
+					msgs, err = clients.SQSClient.ReceiveMessage(context.TODO(), &sqs.ReceiveMessageInput{
+						QueueUrl:        resp.QueueUrl,
+						WaitTimeSeconds: 10,
+					})
+					if err != nil {
+						fmt.Println(err)
+						panic(err)
+					}
+
+					for _, msg := range msgs.Messages {
+						fmt.Println(*msg.Body)
+						// somehow handle this
+					}
+				}
+			}()
 		})
 
 		ctx.BeforeSuite(func() {
@@ -275,10 +354,11 @@ func (s *Suite) initScenario(opts *testSuiteOpts) func(ctx *godog.ScenarioContex
 
 			sctx.Template.Funcs(sprig.TxtFuncMap())
 			sctx.Template.Funcs(template.FuncMap{
-				"scenarioStart":   func() time.Time { return sctx.ScenarioStart },
-				"stepStart":       func() time.Time { return sctx.StepStart },
-				"unixEpochMillis": func(t time.Time) int64 { return t.UnixMilli() },
-				"yearDay":         func(t time.Time) int { return t.YearDay() },
+				"scenarioStart":          func() time.Time { return sctx.ScenarioStart },
+				"stepStart":              func() time.Time { return sctx.StepStart },
+				"unixEpochMillisRounded": func(t time.Time) int64 { return t.Unix() * 1000 },
+				"unixEpochMillis":        func(t time.Time) int64 { return t.UnixMilli() },
+				"yearDay":                func(t time.Time) int { return t.YearDay() },
 				"add": func(l, r any) int {
 					left := toInt(l)
 					right := toInt(r)
